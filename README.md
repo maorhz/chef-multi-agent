@@ -1,4 +1,4 @@
-## Architecture & Implementation Plan: \n Multi-Agent Workflow w/Model Armor
+## Architecture & Implementation Plan: Multi-Agent Workflow w/Model Armor and SDP
 
 This document serves as the complete technical spec and implementation reference for the **Smart Chef & Grocery Assistant** multi-agent workflow, featuring real-time client-side prompt shielding and backend Model Armor protection.
 
