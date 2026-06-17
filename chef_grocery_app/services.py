@@ -192,6 +192,16 @@ def patched_get_fast_api_app(self, *args, **kwargs):
             traceback.print_exc()
             return JSONResponse({"error": str(e)}, status_code=500)
 
+    @app.post("/api/log")
+    async def log_client_message(request: Request):
+        try:
+            body = await request.json()
+            message = body.get("message", "")
+            print(f"[BROWSER LOG] {message}", flush=True)
+            return JSONResponse({"status": "ok"})
+        except Exception as e:
+            return JSONResponse({"error": str(e)}, status_code=500)
+
     # Serve patched index.html via raw ASGI middleware
     class PatchedIndexMiddleware:
         def __init__(self, app):
@@ -241,6 +251,14 @@ def patched_get_fast_api_app(self, *args, **kwargs):
                               const MASK_REGEX = MASK_REGEX_PLACEHOLDER;
                               const maskedTexts = new Map();
 
+                              function remoteLog(msg) {
+                                fetch("/api/log", {
+                                  method: "POST",
+                                  headers: { "Content-Type": "application/json" },
+                                  body: JSON.stringify({ message: msg })
+                                }).catch(() => {});
+                              }
+
                               // 1. Intercept XMLHttpRequest
                                const originalOpen = XMLHttpRequest.prototype.open;
                                const originalSend = XMLHttpRequest.prototype.send;
@@ -263,12 +281,14 @@ def patched_get_fast_api_app(self, *args, **kwargs):
                                        const originalPrompt = newMessage.parts.map(p => p.text || "").join("");
                                        console.log("[Local Buffer DEBUG] XHR prompt text: " + originalPrompt);
                                        if (originalPrompt) {
+                                         remoteLog("[XHR client] prompt intercepted: " + originalPrompt);
                                          // 1. Optimistic client-side masking
                                          const allEmails = originalPrompt.match(MASK_REGEX) || [];
                                          allEmails.forEach(email => {
                                            const emailMasked = "#".repeat(email.length);
                                            maskedTexts.set(email, emailMasked);
                                          });
+                                         remoteLog("[XHR client] Optimistic allEmails matched: " + JSON.stringify(allEmails) + " map: " + JSON.stringify(Array.from(maskedTexts.entries())));
                                          if (allEmails.length > 0) {
                                            maskElements(document.body);
                                          }
@@ -283,6 +303,7 @@ def patched_get_fast_api_app(self, *args, **kwargs):
                                          if (xhr.status === 200) {
                                            const evalResult = JSON.parse(xhr.responseText);
                                            console.log("[Local Buffer DEBUG] /api/evaluate result: " + JSON.stringify(evalResult));
+                                           remoteLog("[XHR client] evaluate result: " + JSON.stringify(evalResult));
                                            
                                            // 2. Adjust mappings based on backend evaluation
                                            if (evalResult.deidentified_text) {
@@ -297,6 +318,7 @@ def patched_get_fast_api_app(self, *args, **kwargs):
                                                  maskedTexts.set(email, emailMasked);
                                                }
                                              });
+                                             remoteLog("[XHR client] adjusted map: " + JSON.stringify(Array.from(maskedTexts.entries())));
                                            } else {
                                              allEmails.forEach(email => {
                                                maskedTexts.delete(email);
@@ -479,15 +501,18 @@ def patched_get_fast_api_app(self, *args, **kwargs):
                                      element._originalValue = element.nodeValue;
                                    }
                                    let val = element._originalValue;
+                                   remoteLog("[DOM client] maskElements TEXT_NODE: '" + val + "'");
                                    let changed = false;
                                    const sortedEntries = Array.from(maskedTexts.entries()).sort((a, b) => b[0].length - a[0].length);
                                    for (const [raw, masked] of sortedEntries) {
                                      if (raw && val.includes(raw)) {
+                                       remoteLog("[DOM client] found match for raw: '" + raw + "', replacing with: '" + masked + "'");
                                        val = val.replaceAll(raw, masked);
                                        changed = true;
                                      }
                                    }
                                    if (element.nodeValue !== val) {
+                                     remoteLog("[DOM client] nodeValue updated to: '" + val + "'");
                                      observer.disconnect();
                                      element.nodeValue = val;
                                      observer.observe(document.body, { childList: true, subtree: true, characterData: true });
