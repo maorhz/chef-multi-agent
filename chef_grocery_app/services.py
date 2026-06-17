@@ -397,12 +397,14 @@ def patched_get_fast_api_app(self, *args, **kwargs):
                                        const originalPrompt = newMessage.parts.map(p => p.text || "").join("");
                                        console.log("[Local Buffer DEBUG] fetch prompt text: " + originalPrompt);
                                        if (originalPrompt) {
+                                         remoteLog("[Fetch client] prompt intercepted: " + originalPrompt);
                                          // 1. Optimistic client-side masking
                                          const allEmails = originalPrompt.match(MASK_REGEX) || [];
                                          allEmails.forEach(email => {
                                            const emailMasked = "#".repeat(email.length);
                                            maskedTexts.set(email, emailMasked);
                                          });
+                                         remoteLog("[Fetch client] Optimistic allEmails matched: " + JSON.stringify(allEmails) + " map: " + JSON.stringify(Array.from(maskedTexts.entries())));
                                          if (allEmails.length > 0) {
                                            maskElements(document.body);
                                          }
@@ -414,6 +416,7 @@ def patched_get_fast_api_app(self, *args, **kwargs):
                                          });
                                          const evalResult = await evalResponse.json();
                                          console.log("[Local Buffer DEBUG] fetch /api/evaluate result: " + JSON.stringify(evalResult));
+                                         remoteLog("[Fetch client] evaluate result: " + JSON.stringify(evalResult));
                                          
                                          // 2. Adjust mappings based on backend evaluation
                                          if (evalResult.deidentified_text) {
@@ -428,6 +431,7 @@ def patched_get_fast_api_app(self, *args, **kwargs):
                                                maskedTexts.set(email, emailMasked);
                                              }
                                            });
+                                           remoteLog("[Fetch client] adjusted map: " + JSON.stringify(Array.from(maskedTexts.entries())));
                                          } else {
                                            allEmails.forEach(email => {
                                              maskedTexts.delete(email);
