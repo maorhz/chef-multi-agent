@@ -508,12 +508,32 @@ def patched_get_fast_api_app(self, *args, **kwargs):
                                    let val = element._originalValue;
                                    remoteLog("[DOM client] maskElements TEXT_NODE: '" + val + "'");
                                    let changed = false;
-                                   const sortedEntries = Array.from(maskedTexts.entries()).sort((a, b) => b[0].length - a[0].length);
-                                   for (const [raw, masked] of sortedEntries) {
-                                     if (raw && val.includes(raw)) {
-                                       remoteLog("[DOM client] found match for raw: '" + raw + "', replacing with: '" + masked + "'");
-                                       val = val.replaceAll(raw, masked);
-                                       changed = true;
+                                   
+                                   // 1. Try substring mapping against any full prompt deidentified_text in map
+                                   for (const [raw, masked] of maskedTexts.entries()) {
+                                     if (raw && raw.length > 50 && masked && masked.length === raw.length) {
+                                       const startIdx = raw.indexOf(val);
+                                       if (startIdx !== -1) {
+                                         const maskedVal = masked.substring(startIdx, startIdx + val.length);
+                                         if (maskedVal !== val) {
+                                           remoteLog("[DOM client] found substring match in full prompt offset: " + startIdx + ", replacing: '" + val + "' with: '" + maskedVal + "'");
+                                           val = maskedVal;
+                                           changed = true;
+                                           break;
+                                         }
+                                       }
+                                     }
+                                   }
+                                   
+                                   // 2. Fall back to individual replacements in Map
+                                   if (!changed) {
+                                     const sortedEntries = Array.from(maskedTexts.entries()).sort((a, b) => b[0].length - a[0].length);
+                                     for (const [raw, masked] of sortedEntries) {
+                                       if (raw && val.includes(raw)) {
+                                         remoteLog("[DOM client] found individual match for raw: '" + raw + "', replacing with: '" + masked + "'");
+                                         val = val.replaceAll(raw, masked);
+                                         changed = true;
+                                       }
                                      }
                                    }
                                    if (element.nodeValue !== val) {
