@@ -479,6 +479,7 @@ def patched_get_fast_api_app(self, *args, **kwargs):
                                       }
                                    } catch (e) {
                                      console.error("[Local Buffer DEBUG] fetch evaluation error:", e);
+                                     remoteLog("[Fetch client] fetch evaluation error: " + (e.stack || e.message));
                                    }
                                  }
                                  return originalFetch.call(this, resource, options);
