@@ -1,4 +1,4 @@
-## Multi-Agent Workflow w/Model Armor and SDP
+# Final Architecture & Implementation Plan: Multi-Agent Workflow
 
 This document serves as the complete technical spec and implementation reference for the **Smart Chef & Grocery Assistant** multi-agent workflow, featuring real-time client-side prompt shielding and backend Model Armor protection.
 
@@ -53,19 +53,38 @@ sequenceDiagram
     end
 ```
 
-### Multi-Agent Orchestration Graph:
+### Complete System Architecture & Orchestration Graph:
 
 ```mermaid
 graph TD
-    START([START]) --> run_chef{run_chef Node}
-    run_chef -- "[Security Alert] / Blocked" --> Halt([Workflow Terminates])
-    run_chef -- "continue / Recipe Text" --> Grocery[Grocery Agent]
-    Grocery --> Output([Final Output])
-    
-    subgraph Security Layer
-        sdp[SDP/DLP - Template fetching] -.-> callback[model_armor_input_shield]
-        callback -.-> chef_agent[Chef Agent]
-        chef_agent -.-> run_chef
+    %% Subgraph 1: GCP & Translation
+    subgraph "DLP Template Translation Pipeline (GCP to Client)"
+        dlp["GCP DLP Inspect Template<br/>(InfoTypes & Custom Regexes)"] -->|1. Fetch Template| backend["FastAPI DLP Service<br/>(Translate to local Regex)"]
+        backend -->|2. Compile MASK_REGEX| middleware["PatchedIndexMiddleware (ASGI)"]
+        middleware -->|3. Inject into HTML| browser["Browser JS Interceptor<br/>(Active DOM Hook)"]
+    end
+
+    %% Subgraph 2: Runtime Shielding
+    subgraph "Real-Time Prompt Shielding"
+        User([User Prompt]) -->|4. Input Event| browser
+        browser -->|5. Optimistic Masking| dom["DOM Chat Bubble (Instant Mask)"]
+        browser -->|6. Sync /evaluate| evaluate["POST /evaluate<br/>(Model Armor sanitization)"]
+        evaluate -->|7. Return deidentified_text| browser
+        browser -->|8. Update DOM state| dom
+    end
+
+    %% Subgraph 3: Workflow Execution
+    subgraph "Multi-Agent Workflow"
+        browser -->|9. Stream POST /run_sse| workflow["ADK Workflow Entry"]
+        workflow --> run_chef{run_chef Node}
+        run_chef -- "[Security Alert] / Blocked" --> Halt([Workflow Terminates])
+        run_chef -- "continue / Recipe" --> Grocery[Grocery Agent]
+        Grocery --> Output([Final Output])
+        
+        subgraph ADK Agent Shield
+            callback[model_armor_input_shield] -.-> chef_agent[Chef Agent]
+            chef_agent -.-> run_chef
+        end
     end
 ```
 
