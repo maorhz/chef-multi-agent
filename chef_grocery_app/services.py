@@ -512,12 +512,24 @@ def patched_get_fast_api_app(self, *args, **kwargs):
                                    // 1. Try substring mapping against any full prompt deidentified_text in map
                                    for (const [raw, masked] of maskedTexts.entries()) {
                                      if (raw && raw.length > 50 && masked && masked.length === raw.length) {
-                                       const startIdx = raw.indexOf(val);
+                                       // Normalize non-breaking spaces in both lookup value and full prompt
+                                       const normalizedVal = val.replace(/\u00a0/g, " ");
+                                       const normalizedPrompt = raw.replace(/\u00a0/g, " ");
+                                       const startIdx = normalizedPrompt.indexOf(normalizedVal);
                                        if (startIdx !== -1) {
                                          const maskedVal = masked.substring(startIdx, startIdx + val.length);
-                                         if (maskedVal !== val) {
-                                           remoteLog("[DOM client] found substring match in full prompt offset: " + startIdx + ", replacing: '" + val + "' with: '" + maskedVal + "'");
-                                           val = maskedVal;
+                                         // Preserve non-breaking spaces from original DOM value
+                                         let finalVal = "";
+                                         for (let i = 0; i < val.length; i++) {
+                                           if (val[i] === "\u00a0" && maskedVal[i] === " ") {
+                                             finalVal += "\u00a0";
+                                           } else {
+                                             finalVal += maskedVal[i];
+                                           }
+                                         }
+                                         if (finalVal !== val) {
+                                           remoteLog("[DOM client] found substring match in full prompt offset: " + startIdx + ", replacing: '" + val + "' with: '" + finalVal + "'");
+                                           val = finalVal;
                                            changed = true;
                                            break;
                                          }
