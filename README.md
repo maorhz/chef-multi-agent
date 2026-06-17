@@ -1,3 +1,5 @@
+Disclaimer: This code is an ad-hoc reference example only. It is not officially supported or endorsed by Google. Google assumes no responsibility or liability for its use. Use at your own risk.
+
 # Multi-Agent Workflow with SDP/DLP Dynamic Masking
 
 This document serves as the complete technical spec and implementation reference for the **Smart Chef & Grocery Assistant** multi-agent workflow, featuring real-time client-side prompt shielding and backend Model Armor protection.
