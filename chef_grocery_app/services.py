@@ -311,7 +311,8 @@ def patched_get_fast_api_app(self, *args, **kwargs):
                                           newMessage.parts.forEach(part => {
                                              if (part.text) {
                                                let updatedText = part.text;
-                                               for (const [raw, msk] of maskedTexts.entries()) {
+                                               const sortedEntries = Array.from(maskedTexts.entries()).sort((a, b) => b[0].length - a[0].length);
+                                               for (const [raw, msk] of sortedEntries) {
                                                  if (raw && updatedText.includes(raw)) {
                                                    updatedText = updatedText.replaceAll(raw, msk);
                                                  }
@@ -418,7 +419,8 @@ def patched_get_fast_api_app(self, *args, **kwargs):
                                          newMessage.parts.forEach(part => {
                                            if (part.text) {
                                              let updatedText = part.text;
-                                             for (const [raw, msk] of maskedTexts.entries()) {
+                                             const sortedEntries = Array.from(maskedTexts.entries()).sort((a, b) => b[0].length - a[0].length);
+                                             for (const [raw, msk] of sortedEntries) {
                                                if (raw && updatedText.includes(raw)) {
                                                  updatedText = updatedText.replaceAll(raw, msk);
                                                }
@@ -478,7 +480,8 @@ def patched_get_fast_api_app(self, *args, **kwargs):
                                    }
                                    let val = element._originalValue;
                                    let changed = false;
-                                   for (const [raw, masked] of maskedTexts.entries()) {
+                                   const sortedEntries = Array.from(maskedTexts.entries()).sort((a, b) => b[0].length - a[0].length);
+                                   for (const [raw, masked] of sortedEntries) {
                                      if (raw && val.includes(raw)) {
                                        val = val.replaceAll(raw, masked);
                                        changed = true;
