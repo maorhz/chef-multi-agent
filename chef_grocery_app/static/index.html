@@ -15,7 +15,7 @@
   
   <!-- Injected Regex Placeholder -->
   <script>
-    window.MASK_REGEX = MASK_REGEX_PLACEHOLDER;
+    window.MASK_REGEX_STR = MASK_REGEX_PLACEHOLDER;
   </script>
 </head>
 <body>
@@ -24,131 +24,47 @@
     <header class="app-header">
       <div class="header-logo">
         <span class="material-symbols-outlined logo-icon">restaurant</span>
-        <h1>Gourmet Chef <span class="accent">&amp;</span> Grocery Assistant</h1>
+        <h1>Gourmet Chef</h1>
       </div>
       <div class="security-status">
         <span class="material-symbols-outlined security-icon">shield</span>
-        <span class="security-text">Active SDP Prompt Shield</span>
+        <span class="security-text">SDP Protected</span>
       </div>
     </header>
 
-    <!-- Main Content Grid -->
-    <main class="app-main">
-      <!-- Left Column: Culinary Chat -->
-      <section class="chat-column">
-        <div class="panel-header">
-          <span class="material-symbols-outlined">chat_bubble</span>
-          <h2>Culinary Consultation</h2>
-        </div>
-        
-        <!-- Chat History -->
-        <div class="chat-history" id="chatHistory">
-          <div class="message system-message">
-            <span class="material-symbols-outlined system-avatar">cooking</span>
-            <div class="message-body">
-              <p>Welcome to your digital kitchen! Tell me what you're craving, what ingredients you want to use, or any dietary restrictions, and I'll whip up a gourmet recipe and a smart shopping list for you.</p>
-              <div class="suggestion-pills">
-                <button class="pill-btn" onclick="sendSuggestion('I want a high-protein keto dinner using chicken breasts')">🍗 High-Protein Keto Dinner</button>
-                <button class="pill-btn" onclick="sendSuggestion('Show me a quick 15-minute vegan pasta recipe')">🌱 15-Min Vegan Pasta</button>
-                <button class="pill-btn" onclick="sendSuggestion('Suggest a gluten-free salmon dinner with avocado')">🥑 Gluten-Free Salmon</button>
-              </div>
+    <!-- Main Chat Area -->
+    <main class="chat-area">
+      <!-- Chat History Stream -->
+      <div class="chat-history" id="chatHistory">
+        <div class="message system-message">
+          <span class="material-symbols-outlined system-avatar">cooking</span>
+          <div class="message-body">
+            <p>Welcome! I am your personal gourmet chef and grocery planner. Tell me what you're craving, what ingredients you want to use, or any dietary restrictions.</p>
+            <p style="margin-top: 8px; color: var(--text-secondary); font-size: 13px;">Try one of the suggestions below to get started:</p>
+            <div class="suggestion-pills">
+              <button class="pill-btn" onclick="sendSuggestion('I want a high-protein keto dinner using chicken breasts')">🍗 High-Protein Keto Dinner</button>
+              <button class="pill-btn" onclick="sendSuggestion('Show me a quick 15-minute vegan pasta recipe')">🌱 15-Min Vegan Pasta</button>
+              <button class="pill-btn" onclick="sendSuggestion('Suggest a gluten-free salmon dinner with avocado')">🥑 Gluten-Free Salmon</button>
             </div>
           </div>
         </div>
+      </div>
 
-        <!-- Chat Input Form -->
+      <!-- Chat Input Area -->
+      <div class="input-area-container">
         <form class="chat-input-container" id="chatForm">
           <textarea 
             class="chat-textarea" 
             id="chatInput" 
-            placeholder="Type a craving, ingredients, or cooking questions..."
-            rows="2"
+            placeholder="Ask for a recipe, ingredients on hand, or dietary plan..."
+            rows="1"
             required
           ></textarea>
           <button type="submit" class="send-btn" id="sendBtn">
             <span class="material-symbols-outlined">arrow_upward</span>
           </button>
         </form>
-      </section>
-
-      <!-- Right Column: The Gourmet Board -->
-      <section class="board-column">
-        <div class="panel-header board-header">
-          <span class="material-symbols-outlined">dashboard</span>
-          <h2>The Gourmet Board</h2>
-          <div class="board-tabs">
-            <button class="tab-btn active" data-tab="recipeTab">Recipe</button>
-            <button class="tab-btn" data-tab="shoppingTab">Shopping List</button>
-            <button class="tab-btn" data-tab="nutritionTab">Nutrition HUD</button>
-          </div>
-        </div>
-
-        <!-- Board Body -->
-        <div class="board-body">
-          <!-- Loading Overlay -->
-          <div class="board-loading" id="boardLoading">
-            <div class="loader-spinner"></div>
-            <p>Curating your personalized culinary board...</p>
-          </div>
-
-          <!-- Empty State -->
-          <div class="board-empty" id="boardEmpty">
-            <span class="material-symbols-outlined empty-icon">menu_book</span>
-            <h3>No Active Board</h3>
-            <p>Consult with the chef on the left to generate a customized recipe, shopping checklist, and nutritional dashboard.</p>
-          </div>
-
-          <!-- Tab 1: Recipe Display -->
-          <div class="board-tab-content active" id="recipeTab">
-            <article class="recipe-article" id="recipeArticle">
-              <!-- Dynamically populated -->
-            </article>
-          </div>
-
-          <!-- Tab 2: Shopping Checklist -->
-          <div class="board-tab-content" id="shoppingTab">
-            <div class="shopping-checklist-container">
-              <div class="checklist-header">
-                <h3>🛒 Smart Department Checklist</h3>
-                <button class="clear-selection-btn" onclick="resetChecklist()">Reset List</button>
-              </div>
-              <div class="checklist-departments" id="checklistDepartments">
-                <!-- Dynamically populated -->
-              </div>
-            </div>
-          </div>
-
-          <!-- Tab 3: Nutrition HUD -->
-          <div class="board-tab-content" id="nutritionTab">
-            <div class="nutrition-hud-container">
-              <h3>📊 Macronutrient Breakdown</h3>
-              <div class="nutrition-grid">
-                <!-- Circular Indicators / Bars -->
-                <div class="nutrition-card cal-card">
-                  <div class="card-title">Calories</div>
-                  <div class="card-value" id="nutrCal">0 <span class="unit">kcal</span></div>
-                  <div class="progress-track"><div class="progress-bar" id="barCal" style="width: 0%"></div></div>
-                </div>
-                <div class="nutrition-card pro-card">
-                  <div class="card-title">Protein</div>
-                  <div class="card-value" id="nutrPro">0 <span class="unit">g</span></div>
-                  <div class="progress-track"><div class="progress-bar" id="barPro" style="width: 0%"></div></div>
-                </div>
-                <div class="nutrition-card carb-card">
-                  <div class="card-title">Carbs</div>
-                  <div class="card-value" id="nutrCarb">0 <span class="unit">g</span></div>
-                  <div class="progress-track"><div class="progress-bar" id="barCarb" style="width: 0%"></div></div>
-                </div>
-                <div class="nutrition-card fat-card">
-                  <div class="card-title">Fat</div>
-                  <div class="card-value" id="nutrFat">0 <span class="unit">g</span></div>
-                  <div class="progress-track"><div class="progress-bar" id="barFat" style="width: 0%"></div></div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
+      </div>
     </main>
   </div>
 

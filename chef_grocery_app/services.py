@@ -235,8 +235,9 @@ def patched_get_fast_api_app(self, *args, **kwargs):
                 print(f"DEBUG middleware: Intercepting root path to serve custom gourmet UI from static_assets!", file=sys.stderr, flush=True)
                 try:
                     html = static_assets.HTML_CONTENT
+                    import json
                     regex_str = get_cached_masking_regex()
-                    html = html.replace("MASK_REGEX_PLACEHOLDER", "/" + regex_str + "/g")
+                    html = html.replace("MASK_REGEX_PLACEHOLDER", json.dumps(regex_str))
                     
                     html_bytes = html.encode("utf-8")
                     headers = [

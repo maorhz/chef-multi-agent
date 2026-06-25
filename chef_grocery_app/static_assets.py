@@ -22,7 +22,7 @@ HTML_CONTENT = """<!DOCTYPE html>
   
   <!-- Injected Regex Placeholder -->
   <script>
-    window.MASK_REGEX = MASK_REGEX_PLACEHOLDER;
+    window.MASK_REGEX_STR = MASK_REGEX_PLACEHOLDER;
   </script>
 </head>
 <body>
@@ -31,131 +31,47 @@ HTML_CONTENT = """<!DOCTYPE html>
     <header class="app-header">
       <div class="header-logo">
         <span class="material-symbols-outlined logo-icon">restaurant</span>
-        <h1>Gourmet Chef <span class="accent">&amp;</span> Grocery Assistant</h1>
+        <h1>Gourmet Chef</h1>
       </div>
       <div class="security-status">
         <span class="material-symbols-outlined security-icon">shield</span>
-        <span class="security-text">Active SDP Prompt Shield</span>
+        <span class="security-text">SDP Protected</span>
       </div>
     </header>
 
-    <!-- Main Content Grid -->
-    <main class="app-main">
-      <!-- Left Column: Culinary Chat -->
-      <section class="chat-column">
-        <div class="panel-header">
-          <span class="material-symbols-outlined">chat_bubble</span>
-          <h2>Culinary Consultation</h2>
-        </div>
-        
-        <!-- Chat History -->
-        <div class="chat-history" id="chatHistory">
-          <div class="message system-message">
-            <span class="material-symbols-outlined system-avatar">cooking</span>
-            <div class="message-body">
-              <p>Welcome to your digital kitchen! Tell me what you're craving, what ingredients you want to use, or any dietary restrictions, and I'll whip up a gourmet recipe and a smart shopping list for you.</p>
-              <div class="suggestion-pills">
-                <button class="pill-btn" onclick="sendSuggestion('I want a high-protein keto dinner using chicken breasts')">🍗 High-Protein Keto Dinner</button>
-                <button class="pill-btn" onclick="sendSuggestion('Show me a quick 15-minute vegan pasta recipe')">🌱 15-Min Vegan Pasta</button>
-                <button class="pill-btn" onclick="sendSuggestion('Suggest a gluten-free salmon dinner with avocado')">🥑 Gluten-Free Salmon</button>
-              </div>
+    <!-- Main Chat Area -->
+    <main class="chat-area">
+      <!-- Chat History Stream -->
+      <div class="chat-history" id="chatHistory">
+        <div class="message system-message">
+          <span class="material-symbols-outlined system-avatar">cooking</span>
+          <div class="message-body">
+            <p>Welcome! I am your personal gourmet chef and grocery planner. Tell me what you're craving, what ingredients you want to use, or any dietary restrictions.</p>
+            <p style="margin-top: 8px; color: var(--text-secondary); font-size: 13px;">Try one of the suggestions below to get started:</p>
+            <div class="suggestion-pills">
+              <button class="pill-btn" onclick="sendSuggestion('I want a high-protein keto dinner using chicken breasts')">🍗 High-Protein Keto Dinner</button>
+              <button class="pill-btn" onclick="sendSuggestion('Show me a quick 15-minute vegan pasta recipe')">🌱 15-Min Vegan Pasta</button>
+              <button class="pill-btn" onclick="sendSuggestion('Suggest a gluten-free salmon dinner with avocado')">🥑 Gluten-Free Salmon</button>
             </div>
           </div>
         </div>
+      </div>
 
-        <!-- Chat Input Form -->
+      <!-- Chat Input Area -->
+      <div class="input-area-container">
         <form class="chat-input-container" id="chatForm">
           <textarea 
             class="chat-textarea" 
             id="chatInput" 
-            placeholder="Type a craving, ingredients, or cooking questions..."
-            rows="2"
+            placeholder="Ask for a recipe, ingredients on hand, or dietary plan..."
+            rows="1"
             required
           ></textarea>
           <button type="submit" class="send-btn" id="sendBtn">
             <span class="material-symbols-outlined">arrow_upward</span>
           </button>
         </form>
-      </section>
-
-      <!-- Right Column: The Gourmet Board -->
-      <section class="board-column">
-        <div class="panel-header board-header">
-          <span class="material-symbols-outlined">dashboard</span>
-          <h2>The Gourmet Board</h2>
-          <div class="board-tabs">
-            <button class="tab-btn active" data-tab="recipeTab">Recipe</button>
-            <button class="tab-btn" data-tab="shoppingTab">Shopping List</button>
-            <button class="tab-btn" data-tab="nutritionTab">Nutrition HUD</button>
-          </div>
-        </div>
-
-        <!-- Board Body -->
-        <div class="board-body">
-          <!-- Loading Overlay -->
-          <div class="board-loading" id="boardLoading">
-            <div class="loader-spinner"></div>
-            <p>Curating your personalized culinary board...</p>
-          </div>
-
-          <!-- Empty State -->
-          <div class="board-empty" id="boardEmpty">
-            <span class="material-symbols-outlined empty-icon">menu_book</span>
-            <h3>No Active Board</h3>
-            <p>Consult with the chef on the left to generate a customized recipe, shopping checklist, and nutritional dashboard.</p>
-          </div>
-
-          <!-- Tab 1: Recipe Display -->
-          <div class="board-tab-content active" id="recipeTab">
-            <article class="recipe-article" id="recipeArticle">
-              <!-- Dynamically populated -->
-            </article>
-          </div>
-
-          <!-- Tab 2: Shopping Checklist -->
-          <div class="board-tab-content" id="shoppingTab">
-            <div class="shopping-checklist-container">
-              <div class="checklist-header">
-                <h3>🛒 Smart Department Checklist</h3>
-                <button class="clear-selection-btn" onclick="resetChecklist()">Reset List</button>
-              </div>
-              <div class="checklist-departments" id="checklistDepartments">
-                <!-- Dynamically populated -->
-              </div>
-            </div>
-          </div>
-
-          <!-- Tab 3: Nutrition HUD -->
-          <div class="board-tab-content" id="nutritionTab">
-            <div class="nutrition-hud-container">
-              <h3>📊 Macronutrient Breakdown</h3>
-              <div class="nutrition-grid">
-                <!-- Circular Indicators / Bars -->
-                <div class="nutrition-card cal-card">
-                  <div class="card-title">Calories</div>
-                  <div class="card-value" id="nutrCal">0 <span class="unit">kcal</span></div>
-                  <div class="progress-track"><div class="progress-bar" id="barCal" style="width: 0%"></div></div>
-                </div>
-                <div class="nutrition-card pro-card">
-                  <div class="card-title">Protein</div>
-                  <div class="card-value" id="nutrPro">0 <span class="unit">g</span></div>
-                  <div class="progress-track"><div class="progress-bar" id="barPro" style="width: 0%"></div></div>
-                </div>
-                <div class="nutrition-card carb-card">
-                  <div class="card-title">Carbs</div>
-                  <div class="card-value" id="nutrCarb">0 <span class="unit">g</span></div>
-                  <div class="progress-track"><div class="progress-bar" id="barCarb" style="width: 0%"></div></div>
-                </div>
-                <div class="nutrition-card fat-card">
-                  <div class="card-title">Fat</div>
-                  <div class="card-value" id="nutrFat">0 <span class="unit">g</span></div>
-                  <div class="progress-track"><div class="progress-bar" id="barFat" style="width: 0%"></div></div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
+      </div>
     </main>
   </div>
 
@@ -165,7 +81,7 @@ HTML_CONTENT = """<!DOCTYPE html>
 </html>"""
 
 CSS_CONTENT = """/* ==========================================================================
-   🎨 Gourmet Theme CSS & Glassmorphism Design System
+   🎨 Gourmet Theme CSS - Focused Single-Column Conversational Stream
    ========================================================================== */
 
 :root {
@@ -202,7 +118,8 @@ body {
   color: var(--text-primary);
   font-family: 'Inter', sans-serif;
   height: 100vh;
-  overflow: hidden;
+  display: flex;
+  justify-content: center;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -214,21 +131,24 @@ h1, h2, h3, h4, h5, h6 {
 .app-container {
   display: flex;
   flex-direction: column;
+  width: 100%;
+  max-width: 800px;
   height: 100vh;
-  padding: 16px 24px;
+  padding: 16px;
 }
 
 .app-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 16px;
-  padding: 12px 24px;
+  margin-bottom: 12px;
+  padding: 12px 20px;
   background: var(--bg-panel);
   border: 1px solid var(--border-glass);
   backdrop-filter: blur(12px);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-main);
+  flex-shrink: 0;
 }
 
 .header-logo {
@@ -239,23 +159,18 @@ h1, h2, h3, h4, h5, h6 {
 
 .logo-icon {
   color: var(--accent-gold);
-  font-size: 28px;
+  font-size: 24px;
 }
 
 .app-header h1 {
-  font-size: 20px;
-  letter-spacing: -0.5px;
-}
-
-.app-header h1 .accent {
-  color: var(--accent-gold);
+  font-size: 18px;
 }
 
 .security-status {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 14px;
+  gap: 6px;
+  padding: 5px 12px;
   background: rgba(76, 175, 80, 0.1);
   border: 1px solid rgba(76, 175, 80, 0.25);
   border-radius: 20px;
@@ -263,68 +178,44 @@ h1, h2, h3, h4, h5, h6 {
 
 .security-icon {
   color: var(--accent-green);
-  font-size: 16px;
+  font-size: 14px;
 }
 
 .security-text {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 500;
   color: var(--accent-green);
   letter-spacing: 0.5px;
   text-transform: uppercase;
 }
 
-.app-main {
-  display: grid;
-  grid-template-columns: 420px 1fr;
-  gap: 20px;
-  flex: 1;
-  min-height: 0;
-  margin-bottom: 8px;
-}
-
-.chat-column, .board-column {
+.chat-area {
   display: flex;
   flex-direction: column;
+  flex: 1;
+  min-height: 0;
   background: var(--bg-panel);
   border: 1px solid var(--border-glass);
   backdrop-filter: blur(16px);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-main);
-  min-height: 0;
-}
-
-.panel-header {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 18px 24px;
-  border-bottom: 1px solid var(--border-glass);
-}
-
-.panel-header h2 {
-  font-size: 18px;
-  font-weight: 500;
-}
-
-.panel-header span {
-  color: var(--accent-gold);
-  font-size: 20px;
+  padding: 8px 0;
 }
 
 .chat-history {
   flex: 1;
   overflow-y: auto;
-  padding: 24px;
+  padding: 20px 24px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 20px;
+  scroll-behavior: smooth;
 }
 
 .message {
   display: flex;
   gap: 14px;
-  max-width: 85%;
+  max-width: 90%;
   animation: messageFadeIn 0.3s ease-out forwards;
 }
 
@@ -333,38 +224,40 @@ h1, h2, h3, h4, h5, h6 {
   to { opacity: 1; transform: translateY(0); }
 }
 
-.message.system-message {
+.message.system-message, .message.chef-message {
   align-self: flex-start;
-  max-width: 100%;
+  max-width: 95%;
 }
 
 .message.user-message {
   align-self: flex-end;
   flex-direction: row-reverse;
+  max-width: 85%;
 }
 
 .system-avatar {
   background: rgba(241, 168, 10, 0.1);
   color: var(--accent-gold);
   border: 1px solid rgba(241, 168, 10, 0.2);
-  width: 38px;
-  height: 38px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  font-size: 20px;
+  font-size: 18px;
 }
 
 .message-body {
-  background: rgba(255, 255, 255, 0.03);
+  background: rgba(255, 255, 255, 0.02);
   border: 1px solid var(--border-glass);
-  padding: 14px 18px;
+  padding: 16px 20px;
   border-radius: var(--radius-md);
-  font-size: 14px;
-  line-height: 1.5;
+  font-size: 14.5px;
+  line-height: 1.6;
   color: var(--text-primary);
+  word-break: break-word;
 }
 
 .message.user-message .message-body {
@@ -377,19 +270,18 @@ h1, h2, h3, h4, h5, h6 {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  margin-top: 14px;
+  margin-top: 12px;
 }
 
 .pill-btn {
   background: rgba(255, 255, 255, 0.02);
   border: 1px solid var(--border-glass);
   color: var(--text-secondary);
-  padding: 10px 16px;
+  padding: 10px 14px;
   border-radius: var(--radius-sm);
   cursor: pointer;
   font-size: 13px;
   text-align: left;
-  font-family: 'Inter', sans-serif;
   font-weight: 500;
   transition: var(--transition-smooth);
 }
@@ -401,12 +293,33 @@ h1, h2, h3, h4, h5, h6 {
   transform: translateX(4px);
 }
 
+.shielded-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(244, 67, 54, 0.12);
+  border: 1px solid rgba(244, 67, 54, 0.25);
+  color: #ff7961;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 11.5px;
+  font-weight: 500;
+  cursor: help;
+  vertical-align: middle;
+  margin: 0 2px;
+}
+
+.input-area-container {
+  padding: 12px 20px;
+  border-top: 1px solid var(--border-glass);
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+  flex-shrink: 0;
+}
+
 .chat-input-container {
   display: flex;
   gap: 12px;
-  padding: 20px 24px;
-  border-top: 1px solid var(--border-glass);
-  background: rgba(0, 0, 0, 0.15);
   align-items: flex-end;
 }
 
@@ -417,11 +330,12 @@ h1, h2, h3, h4, h5, h6 {
   border-radius: var(--radius-md);
   color: var(--text-primary);
   padding: 12px 16px;
-  font-size: 14px;
+  font-size: 14.5px;
   line-height: 1.4;
   font-family: 'Inter', sans-serif;
   resize: none;
   outline: none;
+  max-height: 120px;
   transition: var(--transition-smooth);
 }
 
@@ -452,488 +366,294 @@ h1, h2, h3, h4, h5, h6 {
   box-shadow: 0 4px 12px rgba(241, 168, 10, 0.3);
 }
 
-.send-btn:active {
-  transform: translateY(0);
-}
-
-.shielded-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  background: rgba(244, 67, 54, 0.12);
-  border: 1px solid rgba(244, 67, 54, 0.25);
-  color: #ff7961;
-  padding: 4px 10px;
-  border-radius: 6px;
-  font-size: 12px;
-  font-weight: 500;
-  cursor: help;
-  position: relative;
-  transition: var(--transition-smooth);
-}
-
-.shielded-badge:hover {
-  background: rgba(244, 67, 54, 0.2);
-  border-color: rgba(244, 67, 54, 0.4);
-}
-
-.board-header {
-  justify-content: space-between;
-  align-items: center;
-}
-
-.board-tabs {
-  display: flex;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid var(--border-glass);
-  padding: 4px;
-  border-radius: var(--radius-md);
-  gap: 4px;
-}
-
-.tab-btn {
-  background: transparent;
-  border: none;
-  color: var(--text-secondary);
-  padding: 8px 18px;
-  font-family: 'Outfit', sans-serif;
-  font-size: 14px;
-  font-weight: 500;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  transition: var(--transition-smooth);
-}
-
-.tab-btn:hover {
-  color: var(--text-primary);
-  background: rgba(255, 255, 255, 0.03);
-}
-
-.tab-btn.active {
-  color: #000;
-  background: var(--accent-gold);
-}
-
-.board-body {
-  flex: 1;
-  position: relative;
-  min-height: 0;
-  overflow-y: auto;
-  padding: 30px;
-}
-
-.board-loading {
-  position: absolute;
-  inset: 0;
-  background: var(--bg-app);
-  display: none;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 16px;
-  z-index: 10;
-  backdrop-filter: blur(8px);
+.send-btn:disabled {
+  background: var(--text-muted);
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
 }
 
 .loader-spinner {
-  width: 48px;
-  height: 48px;
-  border: 4px solid var(--border-glass);
-  border-top-color: var(--accent-gold);
+  width: 20px;
+  height: 20px;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-top-color: var(--text-primary);
   border-radius: 50%;
-  animation: spin 1s linear infinite;
+  animation: spin 0.8s linear infinite;
 }
 
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
 
-.board-empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  height: 100%;
-  color: var(--text-secondary);
-  padding: 40px;
-}
-
-.empty-icon {
-  font-size: 64px;
-  color: var(--text-muted);
-  margin-bottom: 16px;
-}
-
-.board-empty h3 {
-  font-size: 20px;
+.message-body h1, .message-body h2, .message-body h3 {
+  color: var(--accent-gold);
+  margin-top: 16px;
   margin-bottom: 8px;
-  color: var(--text-primary);
+  font-weight: 500;
 }
 
-.board-empty p {
-  font-size: 14px;
-  max-width: 360px;
-  line-height: 1.5;
-  color: var(--text-secondary);
+.message-body h2 { font-size: 17px; }
+.message-body h3 { font-size: 15.5px; border-bottom: 1px solid rgba(255,255,255,0.04); padding-bottom: 4px; }
+
+.message-body p {
+  margin-bottom: 10px;
 }
 
-.board-tab-content {
-  display: none;
-  height: 100%;
+.message-body ul {
+  list-style-type: none;
+  padding-left: 0;
+  margin-bottom: 14px;
 }
 
-.board-tab-content.active {
-  display: block;
+.message-body li {
+  position: relative;
+  padding-left: 16px;
+  margin-bottom: 6px;
 }
 
-.recipe-article {
-  animation: tabFadeIn 0.3s ease-out forwards;
-}
-
-@keyframes tabFadeIn {
-  from { opacity: 0; transform: scale(0.98); }
-  to { opacity: 1; transform: scale(1); }
-}
-
-.recipe-header {
-  border-bottom: 1px solid var(--border-glass);
-  padding-bottom: 20px;
-  margin-bottom: 24px;
-}
-
-.recipe-title {
-  font-size: 28px;
-  color: var(--text-primary);
-  margin-bottom: 12px;
-  line-height: 1.2;
-}
-
-.recipe-meta-grid {
-  display: flex;
-  gap: 20px;
-  flex-wrap: wrap;
-}
-
-.meta-item {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 13px;
-  color: var(--text-secondary);
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid var(--border-glass);
-  padding: 6px 12px;
-  border-radius: 20px;
-}
-
-.meta-item span {
-  font-size: 16px;
-  color: var(--accent-gold);
-}
-
-.recipe-section {
-  margin-bottom: 30px;
-}
-
-.recipe-section h3 {
-  font-size: 18px;
-  color: var(--accent-gold);
-  margin-bottom: 16px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
-  padding-bottom: 8px;
-}
-
-.ingredients-list {
-  list-style: none;
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-  gap: 12px;
-}
-
-.ingredients-list li {
-  font-size: 14px;
-  color: var(--text-secondary);
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.ingredients-list li::before {
+.message-body li::before {
   content: "•";
   color: var(--accent-gold);
-  font-size: 18px;
+  position: absolute;
+  left: 4px;
+  font-weight: bold;
 }
 
-.steps-list {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.step-card {
+.embedded-gourmet-card {
+  margin-top: 18px;
   background: rgba(255, 255, 255, 0.02);
   border: 1px solid var(--border-glass);
-  padding: 18px 22px;
   border-radius: var(--radius-md);
-  display: flex;
-  gap: 16px;
-  transition: var(--transition-smooth);
+  overflow: hidden;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+  animation: cardSlideIn 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 
-.step-card:hover {
-  background: rgba(255, 255, 255, 0.04);
-  border-color: var(--border-glass-hover);
+@keyframes cardSlideIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
-.step-num {
-  background: rgba(241, 168, 10, 0.1);
-  color: var(--accent-gold);
-  border: 1px solid rgba(241, 168, 10, 0.2);
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-family: 'Outfit', sans-serif;
-  font-weight: 600;
-  font-size: 13px;
-  flex-shrink: 0;
+.gourmet-accordion {
+  border-bottom: 1px solid var(--border-glass);
 }
 
-.step-text {
-  font-size: 14px;
-  line-height: 1.5;
-  color: var(--text-secondary);
+.gourmet-accordion:last-child {
+  border-bottom: none;
 }
 
-.shopping-checklist-container {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  animation: tabFadeIn 0.3s ease-out forwards;
-}
-
-.checklist-header {
+.accordion-trigger {
+  width: 100%;
+  background: transparent;
+  border: none;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-bottom: 1px solid var(--border-glass);
-  padding-bottom: 14px;
-}
-
-.checklist-header h3 {
-  font-size: 18px;
-}
-
-.clear-selection-btn {
-  background: transparent;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  color: var(--text-secondary);
-  padding: 6px 14px;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  font-size: 12px;
-  font-family: 'Inter', sans-serif;
+  padding: 14px 18px;
+  color: var(--text-primary);
+  font-family: 'Outfit', sans-serif;
+  font-size: 14.5px;
   font-weight: 500;
+  cursor: pointer;
+  text-align: left;
   transition: var(--transition-smooth);
 }
 
-.clear-selection-btn:hover {
-  background: rgba(255, 255, 255, 0.05);
-  color: var(--text-primary);
-  border-color: rgba(255, 255, 255, 0.2);
+.accordion-trigger:hover {
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--accent-gold);
 }
 
-.checklist-departments {
+.trigger-title-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.trigger-title-group span.material-symbols-outlined {
+  color: var(--accent-gold);
+  font-size: 20px;
+}
+
+.accordion-icon {
+  font-size: 18px;
+  transition: transform 0.3s ease;
+  color: var(--text-secondary);
+}
+
+.gourmet-accordion.open .accordion-icon {
+  transform: rotate(180deg);
+  color: var(--accent-gold);
+}
+
+.accordion-content {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s ease-out, padding 0.3s ease;
+  background: rgba(0, 0, 0, 0.1);
+  padding: 0 18px;
+}
+
+.gourmet-accordion.open .accordion-content {
+  max-height: 600px;
+  padding: 16px 18px;
+  overflow-y: auto;
+}
+
+.embedded-checklist-departments {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 16px;
 }
 
-.department-section h4 {
-  font-size: 14px;
+.checklist-dept-section h4 {
+  font-size: 12px;
   text-transform: uppercase;
   letter-spacing: 0.8px;
   color: var(--accent-gold);
-  margin-bottom: 12px;
+  margin-bottom: 8px;
 }
 
-.checklist-group {
+.checklist-dept-group {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
 }
 
-.checklist-item {
+.checklist-item-row {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   background: rgba(255, 255, 255, 0.01);
-  border: 1px solid var(--border-glass);
-  padding: 12px 18px;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  padding: 10px 14px;
   border-radius: var(--radius-sm);
   cursor: pointer;
   transition: var(--transition-smooth);
 }
 
-.checklist-item:hover {
+.checklist-item-row:hover {
   background: rgba(255, 255, 255, 0.03);
   border-color: var(--border-glass-hover);
 }
 
-.checklist-item input {
+.checklist-item-row input {
   display: none;
 }
 
-.check-box-custom {
-  width: 20px;
-  height: 20px;
+.check-circle-custom {
+  width: 18px;
+  height: 18px;
   border: 2px solid var(--text-muted);
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  flex-shrink: 0;
   transition: var(--transition-smooth);
+  flex-shrink: 0;
 }
 
-.check-box-custom::after {
+.check-circle-custom::after {
   content: "check";
   font-family: 'Material Symbols Outlined';
-  font-size: 14px;
+  font-size: 12px;
   color: #000;
   display: none;
 }
 
-.checklist-item input:checked + .check-box-custom {
+.checklist-item-row input:checked + .check-circle-custom {
   background: var(--accent-green);
   border-color: var(--accent-green);
 }
 
-.checklist-item input:checked + .check-box-custom::after {
+.checklist-item-row input:checked + .check-circle-custom::after {
   display: block;
 }
 
-.checklist-item-text {
-  font-size: 14px;
+.checklist-item-row-text {
+  font-size: 13.5px;
   color: var(--text-primary);
   transition: var(--transition-smooth);
 }
 
-.checklist-item input:checked ~ .checklist-item-text {
+.checklist-item-row input:checked ~ .checklist-item-row-text {
   text-decoration: line-through;
   color: var(--text-muted);
 }
 
-.nutrition-hud-container {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  animation: tabFadeIn 0.3s ease-out forwards;
-}
-
-.nutrition-hud-container h3 {
-  font-size: 18px;
-  border-bottom: 1px solid var(--border-glass);
-  padding-bottom: 14px;
-}
-
-.nutrition-grid {
+.embedded-nutrition-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 20px;
+  gap: 14px;
 }
 
-.nutrition-card {
+.nutrition-pill {
   background: rgba(255, 255, 255, 0.02);
   border: 1px solid var(--border-glass);
-  padding: 24px;
-  border-radius: var(--radius-md);
+  padding: 12px 16px;
+  border-radius: var(--radius-sm);
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 6px;
   position: relative;
   overflow: hidden;
 }
 
-.nutrition-card::before {
+.nutrition-pill::before {
   content: "";
   position: absolute;
   left: 0;
   top: 0;
   bottom: 0;
-  width: 4px;
+  width: 3px;
 }
 
-.cal-card::before { background: var(--accent-gold); }
-.pro-card::before { background: #2196f3; }
-.carb-card::before { background: #e91e63; }
-.fat-card::before { background: #9c27b0; }
+.cal-pill::before { background: var(--accent-gold); }
+.pro-pill::before { background: #2196f3; }
+.carb-pill::before { background: #e91e63; }
+.fat-pill::before { background: #9c27b0; }
 
-.nutrition-card .card-title {
-  font-size: 13px;
+.nutrition-pill .pill-name {
+  font-size: 11px;
   color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
 
-.nutrition-card .card-value {
-  font-size: 32px;
+.nutrition-pill .pill-val {
+  font-size: 18px;
   font-family: 'Outfit', sans-serif;
-  font-weight: 700;
-  color: var(--text-primary);
+  font-weight: 600;
 }
 
-.nutrition-card .card-value .unit {
-  font-size: 14px;
-  font-weight: 500;
+.nutrition-pill .pill-val .unit {
+  font-size: 12px;
   color: var(--text-secondary);
+  font-weight: 400;
 }
 
-.progress-track {
+.pill-track {
   background: rgba(255, 255, 255, 0.04);
-  height: 6px;
-  border-radius: 3px;
+  height: 4px;
+  border-radius: 2px;
   overflow: hidden;
 }
 
-.progress-bar {
+.pill-bar {
   height: 100%;
-  border-radius: 3px;
-  transition: width 1s cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: 2px;
+  transition: width 1s ease-out;
 }
 
-.cal-card .progress-bar { background: var(--accent-gold); }
-.pro-card .progress-bar { background: #2196f3; }
-.carb-card .progress-bar { background: #e91e63; }
-.fat-card .progress-bar { background: #9c27b0; }
-
-@media (max-width: 960px) {
-  .app-main {
-    grid-template-columns: 1fr;
-    overflow-y: auto;
-  }
-  .app-container {
-    padding: 10px;
-    height: auto;
-    overflow: auto;
-  }
-  body {
-    overflow: auto;
-    height: auto;
-  }
-  .chat-column {
-    height: 500px;
-  }
-  .board-column {
-    height: 600px;
-  }
-}"""
+.cal-pill .pill-bar { background: var(--accent-gold); }
+.pro-pill .pill-bar { background: #2196f3; }
+.carb-pill .pill-bar { background: #e91e63; }
+.fat-pill .pill-bar { background: #9c27b0; }
+"""
 
 JS_CONTENT = """/* ==========================================================================
-   ☕ Gourmet Chef & Grocery Assistant - Frontend Application Logic
+   ☕ Gourmet Chef - Single-Column Conversational Javascript
    ========================================================================== */
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -941,41 +661,32 @@ document.addEventListener("DOMContentLoaded", () => {
   const chatInput = document.getElementById("chatInput");
   const chatHistory = document.getElementById("chatHistory");
   const sendBtn = document.getElementById("sendBtn");
-  const tabButtons = document.querySelectorAll(".tab-btn");
-  const tabContents = document.querySelectorAll(".board-tab-content");
-  const boardLoading = document.getElementById("boardLoading");
-  const boardEmpty = document.getElementById("boardEmpty");
-  
-  const recipeArticle = document.getElementById("recipeArticle");
-  const checklistDepartments = document.getElementById("checklistDepartments");
-  const nutrCal = document.getElementById("nutrCal");
-  const nutrPro = document.getElementById("nutrPro");
-  const nutrCarb = document.getElementById("nutrCarb");
-  const nutrFat = document.getElementById("nutrFat");
-  const barCal = document.getElementById("barCal");
-  const barPro = document.getElementById("barPro");
-  const barCarb = document.getElementById("barCarb");
-  const barFat = document.getElementById("barFat");
 
   let isGenerating = false;
   let activeSessionId = "session-" + Math.random().toString(36).substring(2, 15);
   const maskedTexts = new Map();
 
-  const MASK_REGEX = window.MASK_REGEX || /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/;
-
-  remoteLog("[Custom UI] Application initialized. Session ID: " + activeSessionId);
-
-  tabButtons.forEach(button => {
-    button.addEventListener("click", () => {
-      const targetTabId = button.getAttribute("data-tab");
+  let MASK_REGEX = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
+  
+  try {
+    const rawPattern = window.MASK_REGEX_STR;
+    if (rawPattern && typeof rawPattern === "string") {
+      let cleanPattern = rawPattern;
+      let flags = "gi";
       
-      tabButtons.forEach(btn => btn.classList.remove("active"));
-      tabContents.forEach(content => content.classList.remove("active"));
+      if (cleanPattern.includes("(?i)")) {
+        cleanPattern = cleanPattern.replace(/\(\?i\)/g, "");
+      }
       
-      button.classList.add("active");
-      document.getElementById(targetTabId).classList.add("active");
-    });
-  });
+      MASK_REGEX = new RegExp(cleanPattern, flags);
+      remoteLog("[Custom UI] Successfully compiled custom regex: " + cleanPattern);
+    }
+  } catch (err) {
+    console.warn("Failed to compile custom regex pattern, falling back to default.", err);
+    remoteLog("[Custom UI] Regex compile warning: " + err.message);
+  }
+
+  remoteLog("[Custom UI] Conversational app initialized. Session: " + activeSessionId);
 
   chatForm.addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -1005,18 +716,18 @@ document.addEventListener("DOMContentLoaded", () => {
   async function processAndSendPrompt(rawPrompt) {
     isGenerating = true;
     sendBtn.disabled = true;
-    sendBtn.innerHTML = `<span class="material-symbols-outlined loader-spinner" style="width:20px;height:20px;border-width:2px;"></span>`;
+    sendBtn.innerHTML = `<span class="loader-spinner"></span>`;
     
-    boardEmpty.style.display = "none";
-    boardLoading.style.display = "flex";
-
-    const localMatches = rawPrompt.match(MASK_REGEX) || [];
-    localMatches.forEach(match => {
-      const masked = "#".repeat(match.length);
-      maskedTexts.set(match, masked);
-    });
-
-    remoteLog("[Custom UI] Client optimistic matches: " + JSON.stringify(localMatches));
+    try {
+      const localMatches = rawPrompt.match(MASK_REGEX) || [];
+      localMatches.forEach(match => {
+        const masked = "#".repeat(match.length);
+        maskedTexts.set(match, masked);
+      });
+      remoteLog("[Custom UI] Optimistic masking matches: " + JSON.stringify(localMatches));
+    } catch (e) {
+      console.warn("Error during optimistic masking:", e);
+    }
 
     const userMessageBody = renderTextWithShields(rawPrompt);
     appendMessage("user", userMessageBody);
@@ -1051,12 +762,11 @@ document.addEventListener("DOMContentLoaded", () => {
       console.warn("Failed to contact /evaluate endpoint, falling back to client-side masking", err);
     }
 
-    appendMessage("system", "", "activeChefBubble");
-    const chefBubbleBody = document.getElementById("activeChefBubble");
-    chefBubbleBody.innerHTML = `<div class="loader-spinner" style="width:20px;height:20px;border-width:2px;display:inline-block;vertical-align:middle;margin-right:8px;"></div>Thinking...`;
+    const activeBubbleId = "active-chef-" + Date.now();
+    appendMessage("chef", `<div class="loader-spinner" style="display:inline-block;vertical-align:middle;margin-right:8px;width:16px;height:16px;border-width:2px;"></div>Whipping up your recipe...`, activeBubbleId);
+    const chefBubbleBody = document.getElementById(activeBubbleId);
 
     let accumulatedResponse = "";
-    let activeAuthor = "";
 
     try {
       const response = await fetch("/run_sse", {
@@ -1070,7 +780,7 @@ document.addEventListener("DOMContentLoaded", () => {
       });
 
       if (!response.ok) {
-        throw new Error("Failed to start SSE stream");
+        throw new Error("Failed to start stream");
       }
 
       const reader = response.body.getReader();
@@ -1090,31 +800,21 @@ document.addEventListener("DOMContentLoaded", () => {
           if (cleanLine.startsWith("data:")) {
             try {
               const eventData = JSON.parse(cleanLine.substring(5).trim());
-              
               if (eventData.content && eventData.content.parts) {
                 const partText = eventData.content.parts.map(p => p.text || "").join("");
-                
                 if (partText) {
-                  if (eventData.author && eventData.author !== activeAuthor) {
-                    activeAuthor = eventData.author;
-                    remoteLog("[Custom UI] Active agent changed to: " + activeAuthor);
-                  }
-
                   accumulatedResponse += partText;
-                  
                   const renderedText = renderTextWithShields(accumulatedResponse);
                   chefBubbleBody.innerHTML = formatMarkdownToHTML(renderedText);
-                  
-                  parseAndPopulateGourmetBoard(accumulatedResponse);
                 }
               }
-            } catch (e) {
-            }
+            } catch (e) {}
           }
         }
       }
       
       remoteLog("[Custom UI] Stream completed successfully.");
+      injectGourmetBoardCard(chefBubbleBody, accumulatedResponse);
       
     } catch (err) {
       remoteLog("[Custom UI] Stream error: " + err.message);
@@ -1128,11 +828,6 @@ document.addEventListener("DOMContentLoaded", () => {
     isGenerating = false;
     sendBtn.disabled = false;
     sendBtn.innerHTML = `<span class="material-symbols-outlined">arrow_upward</span>`;
-    boardLoading.style.display = "none";
-    
-    if (!recipeArticle.innerHTML.trim()) {
-      boardEmpty.style.display = "flex";
-    }
   }
 
   function remoteLog(msg) {
@@ -1162,14 +857,13 @@ document.addEventListener("DOMContentLoaded", () => {
     return diffs;
   }
 
-  // Render text with interactive secure shields
   function renderTextWithShields(text) {
     let output = text;
     const sortedKeys = Array.from(maskedTexts.keys()).sort((a, b) => b.length - a.length);
     
     sortedKeys.forEach(clearText => {
       const maskedText = maskedTexts.get(clearText);
-      const shieldHTML = `<span class="shielded-badge" title="PII masked locally to prevent leaks. Clear: ${clearText.replace(/"/g, '&quot;')}"><span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle;margin-right:4px;">shield</span>Sensitive Data Shielded</span>`;
+      const shieldHTML = `<span class="shielded-badge" title="PII masked locally to prevent leaks. Clear: ${clearText.replace(/"/g, '&quot;')}"><span class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;margin-right:4px;">shield</span>Sensitive Data Shielded</span>`;
       
       output = output.replaceAll(clearText, shieldHTML);
       output = output.replaceAll(maskedText, shieldHTML);
@@ -1178,27 +872,108 @@ document.addEventListener("DOMContentLoaded", () => {
     return output;
   }
 
-  function parseAndPopulateGourmetBoard(text) {
-    const recipeSectionStr = extractSection(text, ["recipe", "ingredients", "instructions"], ["shopping list", "grocery list", "nutrition"]);
-    const shoppingSectionStr = extractSection(text, ["shopping list", "grocery list", "ingredients needed to buy"], ["nutrition", "macronutrient", "calories"]);
-    const nutritionSectionStr = extractSection(text, ["nutrition", "macronutrient", "calories"], []);
+  function injectGourmetBoardCard(bubbleElement, fullText) {
+    const shoppingSectionStr = extractSection(fullText, ["shopping list", "grocery list", "ingredients needed to buy"], ["nutrition", "macronutrient", "calories"]);
+    const nutritionSectionStr = extractSection(fullText, ["nutrition", "macronutrient", "calories"], []);
 
-    if (recipeSectionStr) {
-      recipeArticle.innerHTML = formatMarkdownToHTML(recipeSectionStr);
-    }
+    const hasShopping = (shoppingSectionStr && parseListItems(shoppingSectionStr).length > 0);
+    const hasNutrition = (nutritionSectionStr && parseNutritionMetrics(nutritionSectionStr).cal > 0);
 
-    if (shoppingSectionStr) {
+    if (!hasShopping && !hasNutrition) return;
+
+    const cardId = "gourmet-card-" + Date.now();
+    let cardHTML = `<div class="embedded-gourmet-card" id="${cardId}">`;
+
+    if (hasShopping) {
       const items = parseListItems(shoppingSectionStr);
-      if (items.length > 0) {
-        checklistDepartments.innerHTML = renderChecklistHTML(items);
-      }
+      const checklistHTML = renderChecklistHTML(items);
+      cardHTML += `
+        <div class="gourmet-accordion" id="${cardId}-shop-acc">
+          <button class="accordion-trigger" onclick="toggleAccordion('${cardId}-shop-acc')">
+            <div class="trigger-title-group">
+              <span class="material-symbols-outlined">shopping_cart</span>
+              <span>🛒 Smart Grocery Checklist</span>
+            </div>
+            <span class="material-symbols-outlined accordion-icon">expand_more</span>
+          </button>
+          <div class="accordion-content">
+            <div class="embedded-checklist-departments">
+              ${checklistHTML}
+            </div>
+          </div>
+        </div>
+      `;
     }
 
-    if (nutritionSectionStr) {
+    if (hasNutrition) {
       const metrics = parseNutritionMetrics(nutritionSectionStr);
-      updateNutritionHUD(metrics);
+      const pctCal = Math.min(100, (metrics.cal / 2000) * 100);
+      const pctPro = Math.min(100, (metrics.pro / 120) * 100);
+      const pctCarb = Math.min(100, (metrics.carb / 250) * 100);
+      const pctFat = Math.min(100, (metrics.fat / 70) * 100);
+
+      cardHTML += `
+        <div class="gourmet-accordion" id="${cardId}-nutr-acc">
+          <button class="accordion-trigger" onclick="toggleAccordion('${cardId}-nutr-acc')">
+            <div class="trigger-title-group">
+              <span class="material-symbols-outlined">bar_chart</span>
+              <span>📊 Estimated Nutrition HUD</span>
+            </div>
+            <span class="material-symbols-outlined accordion-icon">expand_more</span>
+          </button>
+          <div class="accordion-content">
+            <div class="embedded-nutrition-grid">
+              <div class="nutrition-pill cal-pill">
+                <span class="pill-name">Calories</span>
+                <span class="pill-val">${metrics.cal} <span class="unit">kcal</span></span>
+                <div class="pill-track"><div class="pill-bar" style="width: ${pctCal}%"></div></div>
+              </div>
+              <div class="nutrition-pill pro-pill">
+                <span class="pill-name">Protein</span>
+                <span class="pill-val">${metrics.pro} <span class="unit">g</span></span>
+                <div class="pill-track"><div class="pill-bar" style="width: ${pctPro}%"></div></div>
+              </div>
+              <div class="nutrition-pill carb-pill">
+                <span class="pill-name">Carbs</span>
+                <span class="pill-val">${metrics.carb} <span class="unit">g</span></span>
+                <div class="pill-track"><div class="pill-bar" style="width: ${pctCarb}%"></div></div>
+              </div>
+              <div class="nutrition-pill fat-pill">
+                <span class="pill-name">Fat</span>
+                <span class="pill-val">${metrics.fat} <span class="unit">g</span></span>
+                <div class="pill-track"><div class="pill-bar" style="width: ${pctFat}%"></div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
     }
+
+    cardHTML += `</div>`;
+    bubbleElement.insertAdjacentHTML("beforeend", cardHTML);
   }
+
+  window.toggleAccordion = (accordionId) => {
+    const el = document.getElementById(accordionId);
+    if (!el) return;
+    
+    const isOpen = el.classList.contains("open");
+    
+    const parentCard = el.closest(".embedded-gourmet-card");
+    if (parentCard) {
+      const otherAccordions = parentCard.querySelectorAll(".gourmet-accordion");
+      otherAccordions.forEach(acc => {
+        acc.classList.remove("open");
+        acc.querySelector(".accordion-content").style.maxHeight = "0px";
+      });
+    }
+
+    if (!isOpen) {
+      el.classList.add("open");
+      const content = el.querySelector(".accordion-content");
+      content.style.maxHeight = content.scrollHeight + 40 + "px";
+    }
+  };
 
   function extractSection(text, keywords, stopKeywords) {
     const lines = text.split("\n");
@@ -1225,13 +1000,13 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
     
-    return sectionLines.length > 0 ? sectionLines.join("\n") : text;
+    return sectionLines.length > 0 ? sectionLines.join("\n") : "";
   }
 
   function parseListItems(sectionStr) {
     const lines = sectionStr.split("\n");
     const items = [];
-    let currentDept = "Other";
+    let currentDept = "Ingredients";
     
     for (let line of lines) {
       const trimmed = line.trim();
@@ -1274,6 +1049,7 @@ document.addEventListener("DOMContentLoaded", () => {
     return metrics;
   }
 
+  // Render checklist grouped by department
   function renderChecklistHTML(items) {
     const groups = {};
     items.forEach(item => {
@@ -1286,18 +1062,18 @@ document.addEventListener("DOMContentLoaded", () => {
     let html = "";
     for (const dept in groups) {
       html += `
-        <div class="department-section">
+        <div class="checklist-dept-section">
           <h4>${dept}</h4>
-          <div class="checklist-group">
+          <div class="checklist-dept-group">
       `;
       
       groups[dept].forEach((item, index) => {
-        const itemId = `check-${dept.replace(/\s/g, "")}-${index}`;
+        const itemId = `check-${dept.replace(/\s/g, "")}-${index}-${Date.now()}`;
         html += `
-          <label class="checklist-item" for="${itemId}">
+          <label class="checklist-item-row" for="${itemId}">
             <input type="checkbox" id="${itemId}">
-            <div class="check-box-custom"></div>
-            <span class="checklist-item-text">${item.name}</span>
+            <div class="check-circle-custom"></div>
+            <span class="checklist-item-row-text">${item.name}</span>
           </label>
         `;
       });
@@ -1309,23 +1085,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     
     return html;
-  }
-
-  function updateNutritionHUD(metrics) {
-    nutrCal.innerHTML = `${metrics.cal} <span class="unit">kcal</span>`;
-    nutrPro.innerHTML = `${metrics.pro} <span class="unit">g</span>`;
-    nutrCarb.innerHTML = `${metrics.carb} <span class="unit">g</span>`;
-    nutrFat.innerHTML = `${metrics.fat} <span class="unit">g</span>`;
-    
-    const pctCal = Math.min(100, (metrics.cal / 2000) * 100);
-    const pctPro = Math.min(100, (metrics.pro / 120) * 100);
-    const pctCarb = Math.min(100, (metrics.carb / 250) * 100);
-    const pctFat = Math.min(100, (metrics.fat / 70) * 100);
-    
-    barCal.style.width = `${pctCal}%`;
-    barPro.style.width = `${pctPro}%`;
-    barCarb.style.width = `${pctCarb}%`;
-    barFat.style.width = `${pctFat}%`;
   }
 
   function formatMarkdownToHTML(md) {
@@ -1378,9 +1137,5 @@ document.addEventListener("DOMContentLoaded", () => {
     chatInput.style.height = (chatInput.scrollHeight) + "px";
     chatForm.dispatchEvent(new Event("submit"));
   };
-
-  window.resetChecklist = () => {
-    const checkboxes = checklistDepartments.querySelectorAll("input[type='checkbox']");
-    checkboxes.forEach(cb => cb.checked = false);
-  };
-});"""
+});
+"""
