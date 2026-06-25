@@ -160,9 +160,6 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .system-avatar {
-  background: rgba(241, 168, 10, 0.1);
-  color: var(--accent-gold);
-  border: 1px solid rgba(241, 168, 10, 0.2);
   width: 36px;
   height: 36px;
   border-radius: 50%;
@@ -171,6 +168,28 @@ h1, h2, h3, h4, h5, h6 {
   justify-content: center;
   flex-shrink: 0;
   font-size: 18px;
+  transition: var(--transition-smooth);
+}
+
+.system-avatar.chef-avatar, .system-message .system-avatar {
+  background: rgba(241, 168, 10, 0.1);
+  color: var(--accent-gold);
+  border: 1px solid rgba(241, 168, 10, 0.25);
+  box-shadow: 0 0 10px rgba(241, 168, 10, 0.05);
+}
+
+.system-avatar.grocery-avatar {
+  background: rgba(76, 175, 80, 0.1);
+  color: var(--accent-green);
+  border: 1px solid rgba(76, 175, 80, 0.25);
+  box-shadow: 0 0 10px rgba(76, 175, 80, 0.05);
+}
+
+.system-avatar.security-avatar {
+  background: rgba(244, 67, 54, 0.1);
+  color: var(--accent-red);
+  border: 1px solid rgba(244, 67, 54, 0.25);
+  box-shadow: 0 0 10px rgba(244, 67, 54, 0.05);
 }
 
 .message-body {

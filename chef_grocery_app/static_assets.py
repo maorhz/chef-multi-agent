@@ -54,7 +54,7 @@ HTML_FALLBACK = """<!DOCTYPE html>
       </div>
       <div class="security-status">
         <span class="material-symbols-outlined security-icon">shield</span>
-        <span class="security-text">SDP Protected</span>
+        <span class="security-text">MA/SDP Protected</span>
       </div>
     </header>
 
@@ -272,9 +272,6 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .system-avatar {
-  background: rgba(241, 168, 10, 0.1);
-  color: var(--accent-gold);
-  border: 1px solid rgba(241, 168, 10, 0.2);
   width: 36px;
   height: 36px;
   border-radius: 50%;
@@ -283,6 +280,21 @@ h1, h2, h3, h4, h5, h6 {
   justify-content: center;
   flex-shrink: 0;
   font-size: 18px;
+  transition: var(--transition-smooth);
+}
+
+.system-avatar.chef-avatar, .system-message .system-avatar {
+  background: rgba(241, 168, 10, 0.1);
+  color: var(--accent-gold);
+  border: 1px solid rgba(241, 168, 10, 0.25);
+  box-shadow: 0 0 10px rgba(241, 168, 10, 0.05);
+}
+
+.system-avatar.grocery-avatar {
+  background: rgba(76, 175, 80, 0.1);
+  color: var(--accent-green);
+  border: 1px solid rgba(76, 175, 80, 0.25);
+  box-shadow: 0 0 10px rgba(76, 175, 80, 0.05);
 }
 
 .message-body {
@@ -964,12 +976,10 @@ function initializeApp() {
           }
         }
         
-        if (evalData.block) {
           showModal(
-            "Security Blocked",
+            "Security Alert",
             `<p>⚠️ <strong>Active Prompt Shield Intervention</strong></p>
-             <p>Your request was blocked because it contains instructions that violated the active safety templates (e.g. jailbreaks, injection attempts, or malicious inputs).</p>
-             <p style="margin-top: 12px;">The downstream culinary agent workflow has been safely halted to protect system integrity.</p>`,
+             <p>Your request was blocked because it contains instructions that violated the active safety guardrails (e.g. jailbreaks, injection attempts, or malicious inputs).</p>`,
             "security"
           );
           
@@ -982,10 +992,9 @@ function initializeApp() {
       console.warn("Failed to contact /evaluate endpoint, falling back to client-side masking", err);
     }
 
-    const activeChefBubbleId = "active-chef-" + Date.now();
-    appendMessage("chef", `<div class="loader-spinner" style="display:inline-block;vertical-align:middle;margin-right:8px;width:16px;height:16px;border-width:2px;"></div>Whipping up your recipe...`, activeChefBubbleId);
-    const chefBubbleBody = document.getElementById(activeChefBubbleId);
-
+    let currentAgent = null;
+    let activeBubbleId = null;
+    let activeBubbleBody = null;
     let accumulatedResponse = "";
 
     try {
@@ -1025,12 +1034,24 @@ function initializeApp() {
           if (cleanLine.startsWith("data:")) {
             try {
               const eventData = JSON.parse(cleanLine.substring(5).trim());
+              const author = eventData.author || "chef_agent";
+              
               if (eventData.content && eventData.content.parts) {
                 const partText = eventData.content.parts.map(p => p.text || "").join("");
                 if (partText) {
+                  if (author !== currentAgent) {
+                    currentAgent = author;
+                    accumulatedResponse = "";
+                    activeBubbleId = "active-agent-" + author + "-" + Date.now();
+                    
+                    let loadingText = author === "grocery_agent" ? "Planning your grocery checklist..." : "Whipping up your recipe...";
+                    appendMessage("chef", `<div class="loader-spinner" style="display:inline-block;vertical-align:middle;margin-right:8px;width:16px;height:16px;border-width:2px;"></div>${loadingText}`, activeBubbleId, author);
+                    activeBubbleBody = document.getElementById(activeBubbleId);
+                  }
+                  
                   accumulatedResponse += partText;
-                  const renderedText = renderTextWithShields(accumulatedResponse);
-                  chefBubbleBody.innerHTML = formatMarkdownToHTML(renderedText);
+                  const renderedText = renderTextWithShields(accumulatedResponse, false);
+                  activeBubbleBody.innerHTML = formatMarkdownToHTML(renderedText);
                 }
               }
             } catch (e) {}
@@ -1039,11 +1060,17 @@ function initializeApp() {
       }
       
       remoteLog("[Custom UI] Stream completed successfully.");
-      injectGourmetBoardCard(chefBubbleBody, accumulatedResponse);
+      if (activeBubbleBody) {
+        injectGourmetBoardCard(activeBubbleBody, accumulatedResponse);
+      }
       
     } catch (err) {
       remoteLog("[Custom UI] Stream error: " + err.message);
-      chefBubbleBody.innerHTML = `<span style="color:var(--accent-red);">Error: Failed to fetch recipe from server. Please try again.</span>`;
+      if (activeBubbleBody) {
+        activeBubbleBody.innerHTML = `<span style="color:var(--accent-red);">Error: Failed to fetch recipe from server. Please try again.</span>`;
+      } else {
+        appendMessage("chef", `<span style="color:var(--accent-red);">Error: Failed to fetch recipe from server. Please try again.</span>`);
+      }
     }
 
     resetGenerationState();
@@ -1087,7 +1114,7 @@ function initializeApp() {
     return diffs;
   }
 
-  function renderTextWithShields(text) {
+  function renderTextWithShields(text, replaceMaskedHashes = true) {
     let output = text;
     const sortedKeys = Array.from(maskedTexts.keys()).sort((a, b) => b.length - a.length);
     
@@ -1099,11 +1126,13 @@ function initializeApp() {
       placeholders.set(placeholder, clearText);
       
       output = output.replaceAll(clearText, placeholder);
-      output = output.replaceAll(maskedText, placeholder);
+      if (replaceMaskedHashes && maskedText) {
+        output = output.replaceAll(maskedText, placeholder);
+      }
     });
     
     placeholders.forEach((clearText, placeholder) => {
-      const shieldHTML = `<button type="button" class="shielded-badge" onclick="showPiiDetails(this)" data-clear="${clearText.replace(/"/g, '&quot;')}"><span class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;margin-right:4px;">shield</span>Dynamic masking (MA/SDP)</button>`;
+      const shieldHTML = `<button type="button" class="shielded-badge" onclick="showPiiDetails(this)" data-clear="${clearText.replace(/"/g, '&quot;')}"><span class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;margin-right:4px;">shield</span>Dynamic masking</button>`;
       output = output.replaceAll(placeholder, shieldHTML);
     });
     
@@ -1130,7 +1159,7 @@ function initializeApp() {
   window.showPiiDetails = (element) => {
     const clearText = element.getAttribute("data-clear");
     showModal(
-      "Dynamic masking (MA/SDP)",
+      "Dynamic masking",
       `<p>🔒 <strong>Sensitive Information Masked Locally</strong></p>
        <p>This item was intercepted and deidentified locally before leaving your browser to protect your privacy and prevent leaking credentials, personal identity info, or sensitive tokens to cloud logs or histories.</p>
        <p style="margin-top: 14px;"><strong>Protected Original Value:</strong></p>
@@ -1379,13 +1408,27 @@ function initializeApp() {
     return html;
   }
 
-  function appendMessage(sender, body, bodyId = "") {
+  function appendMessage(sender, body, bodyId = "", agentType = "chef_agent") {
     const msgDiv = document.createElement("div");
     msgDiv.classList.add("message", `${sender}-message`);
     
     if (sender === "system" || sender === "chef") {
+      let icon = "cooking";
+      let avatarClass = "system-avatar";
+      
+      if (sender === "system") {
+        icon = "gpp_maybe";
+        avatarClass = "system-avatar security-avatar";
+      } else if (agentType === "grocery_agent") {
+        icon = "shopping_cart";
+        avatarClass = "system-avatar grocery-avatar";
+      } else if (agentType === "chef_agent") {
+        icon = "cooking";
+        avatarClass = "system-avatar chef-avatar";
+      }
+      
       msgDiv.innerHTML = `
-        <span class="material-symbols-outlined system-avatar">cooking</span>
+        <span class="material-symbols-outlined ${avatarClass}">${icon}</span>
         <div class="message-body" ${bodyId ? `id="${bodyId}"` : ""}>${body}</div>
       `;
     } else {
