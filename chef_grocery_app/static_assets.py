@@ -1,11 +1,30 @@
 # -*- coding: utf-8 -*-
 """
 🍽️ Gourmet Chef & Grocery Assistant - Static Assets
-This file embeds the HTML, CSS, and JS resources as raw Python strings
-to ensure they are packaged and deployed successfully to Cloud Run.
+This file dynamically loads the HTML, CSS, and JS resources from disk,
+falling back to embedded string constants in case of filesystem issues.
 """
+import os
 
-HTML_CONTENT = """<!DOCTYPE html>
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+STATIC_DIR = os.path.join(BASE_DIR, "static")
+
+def _load_asset(filename, fallback):
+    path = os.path.join(STATIC_DIR, filename)
+    if os.path.exists(path):
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                return f.read()
+        except Exception as e:
+            import sys
+            print(f"Error reading asset {filename} from disk: {e}", file=sys.stderr, flush=True)
+    return fallback
+
+# ==========================================================================
+# 📦 Embedded Fallbacks (for container-native execution)
+# ==========================================================================
+
+HTML_FALLBACK = """<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -97,7 +116,7 @@ HTML_CONTENT = """<!DOCTYPE html>
 </body>
 </html>"""
 
-CSS_CONTENT = """/* ==========================================================================
+CSS_FALLBACK = """/* ==========================================================================
    🎨 Gourmet Theme CSS - Focused Single-Column Conversational Stream
    ========================================================================== */
 
@@ -815,7 +834,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 """
 
-JS_CONTENT = """/* ==========================================================================
+JS_FALLBACK = """/* ==========================================================================
    ☕ Gourmet Chef - Single-Column Conversational Javascript
    ========================================================================== */
 
@@ -831,8 +850,26 @@ function initializeApp() {
   const modalIcon = document.getElementById("modalIcon");
 
   let isGenerating = false;
-  let activeSessionId = "session-" + Math.random().toString(36).substring(2, 15);
+  let activeSessionId = "session-" + Math.random().toString(36).substring(2, 15); // Fallback default
   const maskedTexts = new Map();
+
+  async function createAdkSession() {
+    try {
+      const res = await fetch("/apps/chef_grocery_app/users/default-user/sessions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" }
+      });
+      if (res.ok) {
+        const sessionData = await res.json();
+        activeSessionId = sessionData.id;
+        remoteLog("[Custom UI] Successfully registered ADK session: " + activeSessionId);
+      } else {
+        remoteLog("[Custom UI] Session registration failed, using fallback ID: " + activeSessionId);
+      }
+    } catch (err) {
+      remoteLog("[Custom UI] Error registering session, using fallback: " + err.message);
+    }
+  }
 
   let MASK_REGEX = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
   
@@ -897,8 +934,9 @@ function initializeApp() {
       console.warn("Error during optimistic masking:", e);
     }
 
+    const userBubbleId = "user-bubble-" + Date.now();
     const userMessageBody = renderTextWithShields(rawPrompt);
-    appendMessage("user", userMessageBody);
+    appendMessage("user", userMessageBody, userBubbleId);
 
     let finalPrompt = rawPrompt;
     try {
@@ -911,6 +949,20 @@ function initializeApp() {
       if (evalRes.ok) {
         const evalData = await evalRes.json();
         remoteLog("[Custom UI] /evaluate result: " + JSON.stringify(evalData));
+        
+        if (evalData.deidentified_text) {
+          finalPrompt = evalData.deidentified_text;
+          const backendMatches = extractPIIDiffs(rawPrompt, finalPrompt);
+          backendMatches.forEach(([clearText, maskedText]) => {
+            maskedTexts.set(clearText, maskedText);
+          });
+          
+          const userBubbleEl = document.getElementById(userBubbleId);
+          if (userBubbleEl) {
+            userBubbleEl.innerHTML = renderTextWithShields(rawPrompt);
+            remoteLog("[Custom UI] Dynamically updated user bubble with backend PII shields.");
+          }
+        }
         
         if (evalData.block) {
           showModal(
@@ -925,22 +977,14 @@ function initializeApp() {
           resetGenerationState();
           return;
         }
-        
-        if (evalData.deidentified_text) {
-          finalPrompt = evalData.deidentified_text;
-          const backendMatches = extractPIIDiffs(rawPrompt, finalPrompt);
-          backendMatches.forEach(([clearText, maskedText]) => {
-            maskedTexts.set(clearText, maskedText);
-          });
-        }
       }
     } catch (err) {
       console.warn("Failed to contact /evaluate endpoint, falling back to client-side masking", err);
     }
 
-    const activeBubbleId = "active-chef-" + Date.now();
-    appendMessage("chef", `<div class="loader-spinner" style="display:inline-block;vertical-align:middle;margin-right:8px;width:16px;height:16px;border-width:2px;"></div>Whipping up your recipe...`, activeBubbleId);
-    const chefBubbleBody = document.getElementById(activeBubbleId);
+    const activeChefBubbleId = "active-chef-" + Date.now();
+    appendMessage("chef", `<div class="loader-spinner" style="display:inline-block;vertical-align:middle;margin-right:8px;width:16px;height:16px;border-width:2px;"></div>Whipping up your recipe...`, activeChefBubbleId);
+    const chefBubbleBody = document.getElementById(activeChefBubbleId);
 
     let accumulatedResponse = "";
 
@@ -949,9 +993,13 @@ function initializeApp() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          newMessage: {
+          user_id: "default-user",
+          session_id: activeSessionId,
+          new_message: {
+            role: "user",
             parts: [{ text: finalPrompt }]
-          }
+          },
+          streaming: true
         })
       });
 
@@ -1015,12 +1063,17 @@ function initializeApp() {
   }
 
   function extractPIIDiffs(clear, masked) {
+    if (!clear || !masked || clear.length !== masked.length) {
+      console.warn("[Custom UI] extractPIIDiffs length mismatch or null:", clear, masked);
+      return [];
+    }
     const diffs = [];
     let i = 0;
-    while (i < clear.length) {
+    const len = clear.length;
+    while (i < len) {
       if (masked[i] === "#") {
         let start = i;
-        while (i < masked.length && masked[i] === "#") {
+        while (i < len && masked[i] === "#") {
           i++;
         }
         const clearSubstring = clear.substring(start, i);
@@ -1037,12 +1090,20 @@ function initializeApp() {
     let output = text;
     const sortedKeys = Array.from(maskedTexts.keys()).sort((a, b) => b.length - a.length);
     
-    sortedKeys.forEach(clearText => {
+    const placeholders = new Map();
+    
+    sortedKeys.forEach((clearText, index) => {
       const maskedText = maskedTexts.get(clearText);
-      const shieldHTML = `<button type="button" class="shielded-badge" onclick="showPiiDetails(this)" data-clear="${clearText.replace(/"/g, '&quot;')}"><span class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;margin-right:4px;">shield</span>Sensitive Data Shielded</button>`;
+      const placeholder = `__GOURMET_SHIELD_TOKEN_${index}__`;
+      placeholders.set(placeholder, clearText);
       
-      output = output.replaceAll(clearText, shieldHTML);
-      output = output.replaceAll(maskedText, shieldHTML);
+      output = output.replaceAll(clearText, placeholder);
+      output = output.replaceAll(maskedText, placeholder);
+    });
+    
+    placeholders.forEach((clearText, placeholder) => {
+      const shieldHTML = `<button type="button" class="shielded-badge" onclick="showPiiDetails(this)" data-clear="${clearText.replace(/"/g, '&quot;')}"><span class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;margin-right:4px;">shield</span>Sensitive Data Shielded</button>`;
+      output = output.replaceAll(placeholder, shieldHTML);
     });
     
     return output;
@@ -1342,6 +1403,8 @@ function initializeApp() {
     chatInput.style.height = (chatInput.scrollHeight) + "px";
     chatForm.dispatchEvent(new Event("submit"));
   };
+
+  createAdkSession();
 }
 
 if (document.readyState === "loading") {
@@ -1350,3 +1413,12 @@ if (document.readyState === "loading") {
   initializeApp();
 }
 """
+
+def get_html():
+    return _load_asset("index.html", HTML_FALLBACK)
+
+def get_css():
+    return _load_asset("styles.css", CSS_FALLBACK)
+
+def get_js():
+    return _load_asset("app.js", JS_FALLBACK)

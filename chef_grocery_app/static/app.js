@@ -17,8 +17,27 @@ function initializeApp() {
 
   // State Management
   let isGenerating = false;
-  let activeSessionId = "session-" + Math.random().toString(36).substring(2, 15);
+  let activeSessionId = "session-" + Math.random().toString(36).substring(2, 15); // Fallback default
   const maskedTexts = new Map();
+
+  // Dynamic ADK Session Registration
+  async function createAdkSession() {
+    try {
+      const res = await fetch("/apps/chef_grocery_app/users/default-user/sessions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" }
+      });
+      if (res.ok) {
+        const sessionData = await res.json();
+        activeSessionId = sessionData.id;
+        remoteLog("[Custom UI] Successfully registered ADK session: " + activeSessionId);
+      } else {
+        remoteLog("[Custom UI] Session registration failed, using fallback ID: " + activeSessionId);
+      }
+    } catch (err) {
+      remoteLog("[Custom UI] Error registering session, using fallback: " + err.message);
+    }
+  }
 
   // 1. Safe, Bulletproof Custom Regex Compilation
   let MASK_REGEX = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g; // Safe default (emails)
@@ -41,8 +60,6 @@ function initializeApp() {
     console.warn("Failed to compile custom regex pattern, falling back to default.", err);
     remoteLog("[Custom UI] Regex compile warning: " + err.message);
   }
-
-  remoteLog("[Custom UI] Conversational app initialized. Session: " + activeSessionId);
 
   // 2. Chat Form Submission
   chatForm.addEventListener("submit", async (e) => {
@@ -90,9 +107,10 @@ function initializeApp() {
       console.warn("Error during optimistic masking:", e);
     }
 
-    // Render the user's message bubble with nice shielded formatting
+    // Render the user's message bubble with nice shielded formatting and a unique ID
+    const userBubbleId = "user-bubble-" + Date.now();
     const userMessageBody = renderTextWithShields(rawPrompt);
-    appendMessage("user", userMessageBody);
+    appendMessage("user", userMessageBody, userBubbleId);
 
     // B. Synchronous Backend Evaluation
     let finalPrompt = rawPrompt;
@@ -107,6 +125,23 @@ function initializeApp() {
         const evalData = await evalRes.json();
         remoteLog("[Custom UI] /evaluate result: " + JSON.stringify(evalData));
         
+        // 1. ALWAYS extract backend PII diffs and update the user's bubble in the DOM first
+        if (evalData.deidentified_text) {
+          finalPrompt = evalData.deidentified_text;
+          const backendMatches = extractPIIDiffs(rawPrompt, finalPrompt);
+          backendMatches.forEach(([clearText, maskedText]) => {
+            maskedTexts.set(clearText, maskedText);
+          });
+          
+          // Re-render and dynamically update the user's chat bubble with the complete set of shields!
+          const userBubbleEl = document.getElementById(userBubbleId);
+          if (userBubbleEl) {
+            userBubbleEl.innerHTML = renderTextWithShields(rawPrompt);
+            remoteLog("[Custom UI] Dynamically updated user bubble with backend PII shields.");
+          }
+        }
+        
+        // 2. Handle active security blocks
         if (evalData.block) {
           // Trigger Premium security blocked dialog box modal!
           showModal(
@@ -120,14 +155,6 @@ function initializeApp() {
           appendMessage("system", `<span style="color:var(--accent-red); font-weight:600;">[Security Alert] Your request was blocked by security filters.</span>`);
           resetGenerationState();
           return;
-        }
-        
-        if (evalData.deidentified_text) {
-          finalPrompt = evalData.deidentified_text;
-          const backendMatches = extractPIIDiffs(rawPrompt, finalPrompt);
-          backendMatches.forEach(([clearText, maskedText]) => {
-            maskedTexts.set(clearText, maskedText);
-          });
         }
       }
     } catch (err) {
@@ -146,9 +173,13 @@ function initializeApp() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          newMessage: {
+          user_id: "default-user",
+          session_id: activeSessionId,
+          new_message: {
+            role: "user",
             parts: [{ text: finalPrompt }]
-          }
+          },
+          streaming: true
         })
       });
 
@@ -217,12 +248,17 @@ function initializeApp() {
 
   // 6. Extract PII diffs
   function extractPIIDiffs(clear, masked) {
+    if (!clear || !masked || clear.length !== masked.length) {
+      console.warn("[Custom UI] extractPIIDiffs length mismatch or null:", clear, masked);
+      return [];
+    }
     const diffs = [];
     let i = 0;
-    while (i < clear.length) {
+    const len = clear.length;
+    while (i < len) {
       if (masked[i] === "#") {
         let start = i;
-        while (i < masked.length && masked[i] === "#") {
+        while (i < len && masked[i] === "#") {
           i++;
         }
         const clearSubstring = clear.substring(start, i);
@@ -235,18 +271,27 @@ function initializeApp() {
     return diffs;
   }
 
-  // 7. Render text with interactive secure shields
+  // 7. Render text with interactive secure shields (Robust Two-Pass Placeholder Compiler Pattern)
   function renderTextWithShields(text) {
     let output = text;
     const sortedKeys = Array.from(maskedTexts.keys()).sort((a, b) => b.length - a.length);
     
-    sortedKeys.forEach(clearText => {
+    const placeholders = new Map();
+    
+    // Step 1: Replace all PII occurrences with safe placeholder tokens (prevents nested HTML corruption)
+    sortedKeys.forEach((clearText, index) => {
       const maskedText = maskedTexts.get(clearText);
-      // Clickable button that displays the modal dialog box on click!
-      const shieldHTML = `<button type="button" class="shielded-badge" onclick="showPiiDetails(this)" data-clear="${clearText.replace(/"/g, '&quot;')}"><span class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;margin-right:4px;">shield</span>Sensitive Data Shielded</button>`;
+      const placeholder = `__GOURMET_SHIELD_TOKEN_${index}__`;
+      placeholders.set(placeholder, clearText);
       
-      output = output.replaceAll(clearText, shieldHTML);
-      output = output.replaceAll(maskedText, shieldHTML);
+      output = output.replaceAll(clearText, placeholder);
+      output = output.replaceAll(maskedText, placeholder);
+    });
+    
+    // Step 2: Replace all placeholders with the beautiful interactive shield buttons
+    placeholders.forEach((clearText, placeholder) => {
+      const shieldHTML = `<button type="button" class="shielded-badge" onclick="showPiiDetails(this)" data-clear="${clearText.replace(/"/g, '&quot;')}"><span class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;margin-right:4px;">shield</span>Sensitive Data Shielded</button>`;
+      output = output.replaceAll(placeholder, shieldHTML);
     });
     
     return output;
@@ -551,6 +596,9 @@ function initializeApp() {
     chatInput.style.height = (chatInput.scrollHeight) + "px";
     chatForm.dispatchEvent(new Event("submit"));
   };
+
+  // Trigger Session Registration on Startup
+  createAdkSession();
 }
 
 // 11. Bulletproof DOM Ready Execution to Prevent Race Conditions!

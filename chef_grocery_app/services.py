@@ -187,11 +187,11 @@ def patched_get_fast_api_app(self, *args, **kwargs):
 
     @app.get("/static/styles.css")
     async def serve_css():
-        return Response(content=static_assets.CSS_CONTENT, media_type="text/css")
+        return Response(content=static_assets.get_css(), media_type="text/css")
 
     @app.get("/static/app.js")
     async def serve_js():
-        return Response(content=static_assets.JS_CONTENT, media_type="application/javascript")
+        return Response(content=static_assets.get_js(), media_type="application/javascript")
 
     @app.post("/evaluate")
     async def evaluate_prompt_api(request: Request):
@@ -234,7 +234,7 @@ def patched_get_fast_api_app(self, *args, **kwargs):
                 import sys
                 print(f"DEBUG middleware: Intercepting root path to serve custom gourmet UI from static_assets!", file=sys.stderr, flush=True)
                 try:
-                    html = static_assets.HTML_CONTENT
+                    html = static_assets.get_html()
                     import json
                     regex_str = get_cached_masking_regex()
                     html = html.replace("MASK_REGEX_PLACEHOLDER", json.dumps(regex_str))
