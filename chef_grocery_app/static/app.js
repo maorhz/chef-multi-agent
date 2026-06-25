@@ -2,7 +2,7 @@
    ☕ Gourmet Chef - Single-Column Conversational Javascript
    ========================================================================== */
 
-document.addEventListener("DOMContentLoaded", () => {
+function initializeApp() {
   // DOM Elements
   const chatForm = document.getElementById("chatForm");
   const chatInput = document.getElementById("chatInput");
@@ -551,4 +551,11 @@ document.addEventListener("DOMContentLoaded", () => {
     chatInput.style.height = (chatInput.scrollHeight) + "px";
     chatForm.dispatchEvent(new Event("submit"));
   };
-});
+}
+
+// 11. Bulletproof DOM Ready Execution to Prevent Race Conditions!
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", initializeApp);
+} else {
+  initializeApp();
+}

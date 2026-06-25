@@ -819,7 +819,7 @@ JS_CONTENT = """/* =============================================================
    ☕ Gourmet Chef - Single-Column Conversational Javascript
    ========================================================================== */
 
-document.addEventListener("DOMContentLoaded", () => {
+function initializeApp() {
   const chatForm = document.getElementById("chatForm");
   const chatInput = document.getElementById("chatInput");
   const chatHistory = document.getElementById("chatHistory");
@@ -1255,7 +1255,6 @@ document.addEventListener("DOMContentLoaded", () => {
     return metrics;
   }
 
-  // Render checklist grouped by department
   function renderChecklistHTML(items) {
     const groups = {};
     items.forEach(item => {
@@ -1343,5 +1342,11 @@ document.addEventListener("DOMContentLoaded", () => {
     chatInput.style.height = (chatInput.scrollHeight) + "px";
     chatForm.dispatchEvent(new Event("submit"));
   };
-});
+}
+
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", initializeApp);
+} else {
+  initializeApp();
+}
 """
