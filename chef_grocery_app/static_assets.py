@@ -993,6 +993,7 @@ function initializeApp() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          app_name: "chef_grocery_app",
           user_id: "default-user",
           session_id: activeSessionId,
           new_message: {
