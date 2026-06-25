@@ -178,6 +178,21 @@ def patched_get_fast_api_app(self, *args, **kwargs):
 
     app = original_get_app(self, *args, **kwargs)
 
+    # Import embedded static assets and FastAPI Response
+    from fastapi.responses import Response
+    try:
+        import chef_grocery_app.static_assets as static_assets
+    except ImportError:
+        import static_assets
+
+    @app.get("/static/styles.css")
+    async def serve_css():
+        return Response(content=static_assets.CSS_CONTENT, media_type="text/css")
+
+    @app.get("/static/app.js")
+    async def serve_js():
+        return Response(content=static_assets.JS_CONTENT, media_type="application/javascript")
+
     @app.post("/evaluate")
     async def evaluate_prompt_api(request: Request):
         try:
@@ -213,7 +228,40 @@ def patched_get_fast_api_app(self, *args, **kwargs):
                 return
 
             path = scope.get("path", "")
-            if "dev-ui" in path or path == "/" or path.endswith("index.html"):
+            
+            # 1. Direct Interception for Custom UI Root Page
+            if path == "/" or path == "/index.html":
+                import sys
+                print(f"DEBUG middleware: Intercepting root path to serve custom gourmet UI from static_assets!", file=sys.stderr, flush=True)
+                try:
+                    html = static_assets.HTML_CONTENT
+                    regex_str = get_cached_masking_regex()
+                    html = html.replace("MASK_REGEX_PLACEHOLDER", "/" + regex_str + "/g")
+                    
+                    html_bytes = html.encode("utf-8")
+                    headers = [
+                        (b"content-type", b"text/html; charset=utf-8"),
+                        (b"content-length", str(len(html_bytes)).encode("utf-8"))
+                    ]
+                    
+                    await send({
+                        "type": "http.response.start",
+                        "status": 200,
+                        "headers": headers
+                    })
+                    await send({
+                        "type": "http.response.body",
+                        "body": html_bytes,
+                        "more_body": False
+                    })
+                    return
+                except Exception as e:
+                    print(f"Error serving custom UI: {e}", file=sys.stderr, flush=True)
+                    await self.app(scope, receive, send)
+                    return
+
+            # 2. Intercept Dev UI to inject prompt shielding
+            if "dev-ui" in path or path.endswith("index.html"):
                 import sys
                 is_html = None
                 response_status = None
