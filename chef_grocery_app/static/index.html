@@ -10,8 +10,8 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
   <!-- Icons -->
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet" />
-  <!-- Custom Stylesheet -->
-  <link rel="stylesheet" href="/static/styles.css">
+  <!-- Custom Stylesheet (with cache-busting query param) -->
+  <link rel="stylesheet" href="/static/styles.css?v=3">
   
   <!-- Injected Regex Placeholder -->
   <script>
@@ -68,7 +68,24 @@
     </main>
   </div>
 
-  <!-- Custom Javascript -->
-  <script src="/static/app.js"></script>
+  <!-- Reusable Custom Dialog Modal -->
+  <div class="gourmet-modal" id="gourmetModal">
+    <div class="modal-overlay" onclick="closeModal()"></div>
+    <div class="modal-card">
+      <div class="modal-header" id="modalHeader">
+        <span class="material-symbols-outlined modal-header-icon" id="modalIcon">shield</span>
+        <h3 id="modalTitle">Security Notice</h3>
+      </div>
+      <div class="modal-body" id="modalBody">
+        <!-- Content dynamically injected -->
+      </div>
+      <div class="modal-footer">
+        <button class="modal-btn" onclick="closeModal()">Dismiss</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Custom Javascript (with cache-busting query param) -->
+  <script src="/static/app.js?v=3"></script>
 </body>
 </html>

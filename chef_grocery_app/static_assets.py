@@ -17,8 +17,8 @@ HTML_CONTENT = """<!DOCTYPE html>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
   <!-- Icons -->
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet" />
-  <!-- Custom Stylesheet -->
-  <link rel="stylesheet" href="/static/styles.css">
+  <!-- Custom Stylesheet (with cache-busting query param) -->
+  <link rel="stylesheet" href="/static/styles.css?v=3">
   
   <!-- Injected Regex Placeholder -->
   <script>
@@ -75,8 +75,25 @@ HTML_CONTENT = """<!DOCTYPE html>
     </main>
   </div>
 
-  <!-- Custom Javascript -->
-  <script src="/static/app.js"></script>
+  <!-- Reusable Custom Dialog Modal -->
+  <div class="gourmet-modal" id="gourmetModal">
+    <div class="modal-overlay" onclick="closeModal()"></div>
+    <div class="modal-card">
+      <div class="modal-header" id="modalHeader">
+        <span class="material-symbols-outlined modal-header-icon" id="modalIcon">shield</span>
+        <h3 id="modalTitle">Security Notice</h3>
+      </div>
+      <div class="modal-body" id="modalBody">
+        <!-- Content dynamically injected -->
+      </div>
+      <div class="modal-footer">
+        <button class="modal-btn" onclick="closeModal()">Dismiss</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Custom Javascript (with cache-busting query param) -->
+  <script src="/static/app.js?v=3"></script>
 </body>
 </html>"""
 
@@ -304,9 +321,16 @@ h1, h2, h3, h4, h5, h6 {
   border-radius: 6px;
   font-size: 11.5px;
   font-weight: 500;
-  cursor: help;
+  cursor: pointer;
   vertical-align: middle;
   margin: 0 2px;
+  transition: var(--transition-smooth);
+}
+
+.shielded-badge:hover {
+  background: rgba(244, 67, 54, 0.2);
+  border-color: rgba(244, 67, 54, 0.4);
+  transform: scale(1.03);
 }
 
 .input-area-container {
@@ -650,6 +674,145 @@ h1, h2, h3, h4, h5, h6 {
 .pro-pill .pill-bar { background: #2196f3; }
 .carb-pill .pill-bar { background: #e91e63; }
 .fat-pill .pill-bar { background: #9c27b0; }
+
+.gourmet-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.gourmet-modal.open {
+  display: flex;
+}
+
+.modal-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(10px);
+  animation: overlayFadeIn 0.3s ease-out forwards;
+}
+
+@keyframes overlayFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.modal-card {
+  position: relative;
+  background: hsl(222, 15%, 12%);
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius-lg);
+  width: 100%;
+  max-width: 480px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  z-index: 1001;
+  animation: cardSlideUp 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  border-left: 5px solid var(--accent-gold);
+}
+
+@keyframes cardSlideUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.gourmet-modal.type-security .modal-card {
+  border-left-color: var(--accent-red);
+}
+
+.gourmet-modal.type-pii .modal-card {
+  border-left-color: var(--accent-gold);
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 20px 24px 14px 24px;
+  border-bottom: 1px solid var(--border-glass);
+}
+
+.modal-header-icon {
+  font-size: 28px;
+  color: var(--accent-gold);
+}
+
+.gourmet-modal.type-security .modal-header-icon {
+  color: var(--accent-red);
+}
+
+.gourmet-modal.type-pii .modal-header-icon {
+  color: var(--accent-gold);
+}
+
+.modal-header h3 {
+  font-size: 18px;
+  color: var(--text-primary);
+}
+
+.modal-body {
+  padding: 24px;
+  font-size: 14.5px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+  overflow-y: auto;
+  max-height: 300px;
+}
+
+.modal-body strong {
+  color: var(--text-primary);
+}
+
+.modal-body code {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 3px 6px;
+  border-radius: 4px;
+  font-family: monospace;
+  color: var(--accent-gold);
+  font-size: 13px;
+  word-break: break-all;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  padding: 14px 24px 20px 24px;
+  border-top: 1px solid var(--border-glass);
+  background: rgba(0, 0, 0, 0.15);
+}
+
+.modal-btn {
+  background: var(--border-glass);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--text-primary);
+  padding: 8px 20px;
+  border-radius: var(--radius-sm);
+  font-family: 'Inter', sans-serif;
+  font-size: 13.5px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: var(--transition-smooth);
+}
+
+.modal-btn:hover {
+  background: var(--accent-gold);
+  border-color: var(--accent-gold);
+  color: #000;
+}
+
+.gourmet-modal.type-security .modal-btn:hover {
+  background: var(--accent-red);
+  border-color: var(--accent-red);
+  color: #fff;
+}
 """
 
 JS_CONTENT = """/* ==========================================================================
@@ -661,6 +824,11 @@ document.addEventListener("DOMContentLoaded", () => {
   const chatInput = document.getElementById("chatInput");
   const chatHistory = document.getElementById("chatHistory");
   const sendBtn = document.getElementById("sendBtn");
+
+  const gourmetModal = document.getElementById("gourmetModal");
+  const modalTitle = document.getElementById("modalTitle");
+  const modalBody = document.getElementById("modalBody");
+  const modalIcon = document.getElementById("modalIcon");
 
   let isGenerating = false;
   let activeSessionId = "session-" + Math.random().toString(36).substring(2, 15);
@@ -745,6 +913,14 @@ document.addEventListener("DOMContentLoaded", () => {
         remoteLog("[Custom UI] /evaluate result: " + JSON.stringify(evalData));
         
         if (evalData.block) {
+          showModal(
+            "Security Blocked",
+            `<p>⚠️ <strong>Active Prompt Shield Intervention</strong></p>
+             <p>Your request was blocked because it contains instructions that violated the active safety templates (e.g. jailbreaks, injection attempts, or malicious inputs).</p>
+             <p style="margin-top: 12px;">The downstream culinary agent workflow has been safely halted to protect system integrity.</p>`,
+            "security"
+          );
+          
           appendMessage("system", `<span style="color:var(--accent-red); font-weight:600;">[Security Alert] Your request was blocked by security filters.</span>`);
           resetGenerationState();
           return;
@@ -863,7 +1039,7 @@ document.addEventListener("DOMContentLoaded", () => {
     
     sortedKeys.forEach(clearText => {
       const maskedText = maskedTexts.get(clearText);
-      const shieldHTML = `<span class="shielded-badge" title="PII masked locally to prevent leaks. Clear: ${clearText.replace(/"/g, '&quot;')}"><span class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;margin-right:4px;">shield</span>Sensitive Data Shielded</span>`;
+      const shieldHTML = `<button type="button" class="shielded-badge" onclick="showPiiDetails(this)" data-clear="${clearText.replace(/"/g, '&quot;')}"><span class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;margin-right:4px;">shield</span>Sensitive Data Shielded</button>`;
       
       output = output.replaceAll(clearText, shieldHTML);
       output = output.replaceAll(maskedText, shieldHTML);
@@ -871,6 +1047,36 @@ document.addEventListener("DOMContentLoaded", () => {
     
     return output;
   }
+
+  function showModal(title, bodyHTML, type = "pii") {
+    modalTitle.innerText = title;
+    modalBody.innerHTML = bodyHTML;
+    
+    if (type === "security") {
+      modalIcon.innerText = "gpp_maybe";
+      gourmetModal.className = "gourmet-modal open type-security";
+    } else {
+      modalIcon.innerText = "shield";
+      gourmetModal.className = "gourmet-modal open type-pii";
+    }
+  }
+
+  window.closeModal = () => {
+    gourmetModal.className = "gourmet-modal";
+  };
+
+  window.showPiiDetails = (element) => {
+    const clearText = element.getAttribute("data-clear");
+    showModal(
+      "Sensitive Data Shielded",
+      `<p>🔒 <strong>Sensitive Information Masked Locally</strong></p>
+       <p>This item was intercepted and deidentified locally before leaving your browser to protect your privacy and prevent leaking credentials, personal identity info, or sensitive tokens to cloud logs or histories.</p>
+       <p style="margin-top: 14px;"><strong>Protected Original Value:</strong></p>
+       <p style="margin-top: 6px;"><code>${clearText}</code></p>
+       <p style="margin-top: 14px; font-size: 13px; color: var(--text-muted);">Original values are only visible in this active session via this deidentification shield.</p>`,
+      "pii"
+    );
+  };
 
   function injectGourmetBoardCard(bubbleElement, fullText) {
     const shoppingSectionStr = extractSection(fullText, ["shopping list", "grocery list", "ingredients needed to buy"], ["nutrition", "macronutrient", "calories"]);

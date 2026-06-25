@@ -9,6 +9,12 @@ document.addEventListener("DOMContentLoaded", () => {
   const chatHistory = document.getElementById("chatHistory");
   const sendBtn = document.getElementById("sendBtn");
 
+  // Reusable Modal Elements
+  const gourmetModal = document.getElementById("gourmetModal");
+  const modalTitle = document.getElementById("modalTitle");
+  const modalBody = document.getElementById("modalBody");
+  const modalIcon = document.getElementById("modalIcon");
+
   // State Management
   let isGenerating = false;
   let activeSessionId = "session-" + Math.random().toString(36).substring(2, 15);
@@ -102,6 +108,15 @@ document.addEventListener("DOMContentLoaded", () => {
         remoteLog("[Custom UI] /evaluate result: " + JSON.stringify(evalData));
         
         if (evalData.block) {
+          // Trigger Premium security blocked dialog box modal!
+          showModal(
+            "Security Blocked",
+            `<p>⚠️ <strong>Active Prompt Shield Intervention</strong></p>
+             <p>Your request was blocked because it contains instructions that violated the active safety templates (e.g. jailbreaks, injection attempts, or malicious inputs).</p>
+             <p style="margin-top: 12px;">The downstream culinary agent workflow has been safely halted to protect system integrity.</p>`,
+            "security"
+          );
+          
           appendMessage("system", `<span style="color:var(--accent-red); font-weight:600;">[Security Alert] Your request was blocked by security filters.</span>`);
           resetGenerationState();
           return;
@@ -227,7 +242,8 @@ document.addEventListener("DOMContentLoaded", () => {
     
     sortedKeys.forEach(clearText => {
       const maskedText = maskedTexts.get(clearText);
-      const shieldHTML = `<span class="shielded-badge" title="PII masked locally to prevent leaks. Clear: ${clearText.replace(/"/g, '&quot;')}"><span class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;margin-right:4px;">shield</span>Sensitive Data Shielded</span>`;
+      // Clickable button that displays the modal dialog box on click!
+      const shieldHTML = `<button type="button" class="shielded-badge" onclick="showPiiDetails(this)" data-clear="${clearText.replace(/"/g, '&quot;')}"><span class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;margin-right:4px;">shield</span>Sensitive Data Shielded</button>`;
       
       output = output.replaceAll(clearText, shieldHTML);
       output = output.replaceAll(maskedText, shieldHTML);
@@ -236,22 +252,52 @@ document.addEventListener("DOMContentLoaded", () => {
     return output;
   }
 
-  // 8. Inject Gourmet Accordion Card inside active Chat Bubble
+  // 8. Reusable Dialog Modal Control
+  function showModal(title, bodyHTML, type = "pii") {
+    modalTitle.innerText = title;
+    modalBody.innerHTML = bodyHTML;
+    
+    // Set icon and style based on type
+    if (type === "security") {
+      modalIcon.innerText = "gpp_maybe";
+      gourmetModal.className = "gourmet-modal open type-security";
+    } else {
+      modalIcon.innerText = "shield";
+      gourmetModal.className = "gourmet-modal open type-pii";
+    }
+  }
+
+  window.closeModal = () => {
+    gourmetModal.className = "gourmet-modal";
+  };
+
+  // Clickable PII detail modal triggers
+  window.showPiiDetails = (element) => {
+    const clearText = element.getAttribute("data-clear");
+    showModal(
+      "Sensitive Data Shielded",
+      `<p>🔒 <strong>Sensitive Information Masked Locally</strong></p>
+       <p>This item was intercepted and deidentified locally before leaving your browser to protect your privacy and prevent leaking credentials, personal identity info, or sensitive tokens to cloud logs or histories.</p>
+       <p style="margin-top: 14px;"><strong>Protected Original Value:</strong></p>
+       <p style="margin-top: 6px;"><code>${clearText}</code></p>
+       <p style="margin-top: 14px; font-size: 13px; color: var(--text-muted);">Original values are only visible in this active session via this deidentification shield.</p>`,
+      "pii"
+    );
+  };
+
+  // 9. Inject Gourmet Accordion Card inside active Chat Bubble
   function injectGourmetBoardCard(bubbleElement, fullText) {
-    // Extract sections
     const shoppingSectionStr = extractSection(fullText, ["shopping list", "grocery list", "ingredients needed to buy"], ["nutrition", "macronutrient", "calories"]);
     const nutritionSectionStr = extractSection(fullText, ["nutrition", "macronutrient", "calories"], []);
 
     const hasShopping = (shoppingSectionStr && parseListItems(shoppingSectionStr).length > 0);
     const hasNutrition = (nutritionSectionStr && parseNutritionMetrics(nutritionSectionStr).cal > 0);
 
-    if (!hasShopping && !hasNutrition) return; // Nothing to inject
+    if (!hasShopping && !hasNutrition) return;
 
-    // Construct Gourmet Accordion Card HTML
     const cardId = "gourmet-card-" + Date.now();
     let cardHTML = `<div class="embedded-gourmet-card" id="${cardId}">`;
 
-    // A. Shopping List Accordion
     if (hasShopping) {
       const items = parseListItems(shoppingSectionStr);
       const checklistHTML = renderChecklistHTML(items);
@@ -273,7 +319,6 @@ document.addEventListener("DOMContentLoaded", () => {
       `;
     }
 
-    // B. Nutrition HUD Accordion
     if (hasNutrition) {
       const metrics = parseNutritionMetrics(nutritionSectionStr);
       const pctCal = Math.min(100, (metrics.cal / 2000) * 100);
@@ -319,19 +364,15 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     cardHTML += `</div>`;
-
-    // Append the card container right inside the chef's response bubble!
     bubbleElement.insertAdjacentHTML("beforeend", cardHTML);
   }
 
-  // 9. Helpers for Accordion and Checkboxes
   window.toggleAccordion = (accordionId) => {
     const el = document.getElementById(accordionId);
     if (!el) return;
     
     const isOpen = el.classList.contains("open");
     
-    // Close other accordions in this same card to keep it tidy
     const parentCard = el.closest(".embedded-gourmet-card");
     if (parentCard) {
       const otherAccordions = parentCard.querySelectorAll(".gourmet-accordion");
@@ -344,11 +385,10 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!isOpen) {
       el.classList.add("open");
       const content = el.querySelector(".accordion-content");
-      content.style.maxHeight = content.scrollHeight + 40 + "px"; // set height dynamically + padding buffer
+      content.style.maxHeight = content.scrollHeight + 40 + "px";
     }
   };
 
-  // 10. Parser: Section extractor based on keywords
   function extractSection(text, keywords, stopKeywords) {
     const lines = text.split("\n");
     let capturing = false;
@@ -377,7 +417,6 @@ document.addEventListener("DOMContentLoaded", () => {
     return sectionLines.length > 0 ? sectionLines.join("\n") : "";
   }
 
-  // Parser: Bullet list items
   function parseListItems(sectionStr) {
     const lines = sectionStr.split("\n");
     const items = [];
@@ -408,7 +447,6 @@ document.addEventListener("DOMContentLoaded", () => {
     return items;
   }
 
-  // Parser: Nutrition values using regex
   function parseNutritionMetrics(sectionStr) {
     const metrics = { cal: 0, pro: 0, carb: 0, fat: 0 };
     
@@ -463,7 +501,6 @@ document.addEventListener("DOMContentLoaded", () => {
     return html;
   }
 
-  // Markdown to basic HTML renderer
   function formatMarkdownToHTML(md) {
     let html = md;
     
@@ -489,7 +526,6 @@ document.addEventListener("DOMContentLoaded", () => {
     return html;
   }
 
-  // Append chat messages to history pane
   function appendMessage(sender, body, bodyId = "") {
     const msgDiv = document.createElement("div");
     msgDiv.classList.add("message", `${sender}-message`);
@@ -509,7 +545,6 @@ document.addEventListener("DOMContentLoaded", () => {
     chatHistory.scrollTop = chatHistory.scrollHeight;
   }
 
-  // Globals for Suggestion Pills
   window.sendSuggestion = (suggestionText) => {
     chatInput.value = suggestionText;
     chatInput.style.height = "auto";
