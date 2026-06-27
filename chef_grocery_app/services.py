@@ -206,13 +206,20 @@ def patched_get_fast_api_app(self, *args, **kwargs):
             block, deidentified_text = evaluate_and_sanitize_prompt(text)
             
             matches = []
-            import re
-            for it_name, pattern in INFO_TYPE_REGEX_MAP.items():
-                for m in re.finditer(pattern, text):
-                    matches.append({"clear": m.group(0), "masked": f"[{it_name}]"})
-                    block = True
-                    if deidentified_text is None:
-                        deidentified_text = re.sub(pattern, f"[{it_name}]", text)
+            if deidentified_text and deidentified_text != text:
+                import difflib
+                matcher = difflib.SequenceMatcher(None, text, deidentified_text)
+                for tag, i1, i2, j1, j2 in matcher.get_opcodes():
+                    if tag != 'equal':
+                        matches.append({"clear": text[i1:i2], "masked": deidentified_text[j1:j2]})
+            else:
+                import re
+                for it_name, pattern in INFO_TYPE_REGEX_MAP.items():
+                    for m in re.finditer(pattern, text):
+                        matches.append({"clear": m.group(0), "masked": f"[{it_name}]"})
+                        block = True
+                        if deidentified_text is None:
+                            deidentified_text = re.sub(pattern, f"[{it_name}]", text)
                         
             return JSONResponse({"block": block, "deidentified_text": deidentified_text, "matches": matches})
         except Exception as e:
