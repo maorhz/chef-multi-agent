@@ -206,20 +206,26 @@ def patched_get_fast_api_app(self, *args, **kwargs):
             block, deidentified_text = evaluate_and_sanitize_prompt(text)
             
             matches = []
+            active_transform = "[redacted]"
             if deidentified_text and deidentified_text != text:
                 import difflib
                 matcher = difflib.SequenceMatcher(None, text, deidentified_text)
                 for tag, i1, i2, j1, j2 in matcher.get_opcodes():
                     if tag != 'equal':
-                        matches.append({"clear": text[i1:i2], "masked": deidentified_text[j1:j2]})
-            else:
-                import re
-                for it_name, pattern in INFO_TYPE_REGEX_MAP.items():
-                    for m in re.finditer(pattern, text):
-                        matches.append({"clear": m.group(0), "masked": f"[{it_name}]"})
+                        rep = deidentified_text[j1:j2]
+                        matches.append({"clear": text[i1:i2], "masked": rep})
+                        if rep and len(rep) > 1:
+                            active_transform = rep
+                            
+            import re
+            for it_name, pattern in INFO_TYPE_REGEX_MAP.items():
+                for m in re.finditer(pattern, text):
+                    clear_m = m.group(0)
+                    if not any(clear_m in m_item["clear"] or m_item["clear"] in clear_m for m_item in matches):
+                        matches.append({"clear": clear_m, "masked": active_transform})
                         block = True
                         if deidentified_text is None:
-                            deidentified_text = re.sub(pattern, f"[{it_name}]", text)
+                            deidentified_text = re.sub(pattern, active_transform, text)
                         
             return JSONResponse({"block": block, "deidentified_text": deidentified_text, "matches": matches})
         except Exception as e:
