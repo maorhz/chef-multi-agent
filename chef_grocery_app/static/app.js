@@ -40,7 +40,7 @@ function initializeApp() {
   }
 
   // 1. Safe, Bulletproof Custom Regex Compilation
-  let MASK_REGEX = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g; // Safe default (emails)
+  let MASK_REGEX = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}|\b(?:[01]?[0-9]|2[0-3]):[0-5][0-9](?::[0-5][0-9])?(?:\s*[aApP][mM])?\b|\b(?:[01]?[0-9]|2[0-3])\s*[aApP][mM]\b/g; // Safe default (emails & time)
   
   try {
     const rawPattern = window.MASK_REGEX_STR;
@@ -100,7 +100,7 @@ function initializeApp() {
     try {
       localMatches = rawPrompt.match(MASK_REGEX) || [];
       localMatches.forEach(match => {
-        const masked = "#".repeat(match.length);
+        const masked = match.includes("@") ? "[EMAIL_ADDRESS]" : (match.includes(":") || match.match(/[aApP][mM]/)) ? "[TIME]" : "[SDP_DEIDENTIFIED]";
         maskedTexts.set(match, masked);
       });
       remoteLog("[Custom UI] Optimistic masking matches: " + JSON.stringify(localMatches));
@@ -128,7 +128,18 @@ function initializeApp() {
         remoteLog("[Custom UI] /evaluate result: " + JSON.stringify(evalData));
         
         // 1. ALWAYS extract backend PII diffs and update the user's bubble in the DOM first
-        if (evalData.deidentified_text) {
+        if (evalData.matches && evalData.matches.length > 0) {
+          evalData.matches.forEach(m => {
+            maskedTexts.set(m.clear, m.masked);
+          });
+          if (evalData.deidentified_text) finalPrompt = evalData.deidentified_text;
+          const userBubbleEl = document.getElementById(userBubbleId);
+          if (userBubbleEl) {
+            userBubbleEl.innerHTML = renderTextWithShields(rawPrompt);
+            remoteLog("[Custom UI] Dynamically updated user bubble with backend PII shields.");
+          }
+          shouldBlock = true;
+        } else if (evalData.deidentified_text) {
           finalPrompt = evalData.deidentified_text;
           const backendMatches = extractPIIDiffs(rawPrompt, finalPrompt);
           backendMatches.forEach(([clearText, maskedText]) => {

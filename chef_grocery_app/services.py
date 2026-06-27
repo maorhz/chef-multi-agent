@@ -21,6 +21,9 @@ INFO_TYPE_REGEX_MAP = {
     "PHONE_NUMBER": r"\+?[0-9]{1,4}[-.\s]?[0-9]{1,10}[-.\s]?[0-9]{1,10}",
     "IP_ADDRESS": r"\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b",
     "STREET_ADDRESS": r"\b[0-9]+\s+[a-zA-Z0-9\s,.]+?\s+(?:Street|St|Avenue|Ave|Road|Rd|Boulevard|Blvd|Drive|Dr|Way|Lane|Ln|Court|Ct)\b",
+    "TIME": r"\b(?:[01]?[0-9]|2[0-3]):[0-5][0-9](?::[0-5][0-9])?(?:\s*[aApP][mM])?\b|\b(?:[01]?[0-9]|2[0-3])\s*[aApP][mM]\b",
+    "DATE": r"\b(?:[0-9]{1,4}[-/._][0-9]{1,2}[-/._][0-9]{1,4}|(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+[0-9]{1,2}(?:st|nd|rd|th)?,?\s+[0-9]{4})\b",
+    "DATE_TIME": r"\b(?:[0-9]{1,4}[-/._][0-9]{1,2}[-/._][0-9]{1,4}|(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+[0-9]{1,2}(?:st|nd|rd|th)?,?\s+[0-9]{4})\s+(?:[01]?[0-9]|2[0-3]):[0-5][0-9](?::[0-5][0-9])?(?:\s*[aApP][mM])?\b",
 }
 
 _DYNAMIC_REGEX_CACHE = None
@@ -199,9 +202,19 @@ def patched_get_fast_api_app(self, *args, **kwargs):
             body = await request.json()
             text = body.get("text", "")
             if not text:
-                return JSONResponse({"block": False, "deidentified_text": None})
+                return JSONResponse({"block": False, "deidentified_text": None, "matches": []})
             block, deidentified_text = evaluate_and_sanitize_prompt(text)
-            return JSONResponse({"block": block, "deidentified_text": deidentified_text})
+            
+            matches = []
+            import re
+            for it_name, pattern in INFO_TYPE_REGEX_MAP.items():
+                for m in re.finditer(pattern, text):
+                    matches.append({"clear": m.group(0), "masked": f"[{it_name}]"})
+                    block = True
+                    if deidentified_text is None:
+                        deidentified_text = re.sub(pattern, f"[{it_name}]", text)
+                        
+            return JSONResponse({"block": block, "deidentified_text": deidentified_text, "matches": matches})
         except Exception as e:
             import traceback
             traceback.print_exc()
