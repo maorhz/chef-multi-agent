@@ -976,13 +976,7 @@ function initializeApp() {
           }
         }
         
-          showModal(
-            "Security Alert",
-            `<p>⚠️ <strong>Active Prompt Shield Intervention</strong></p>
-             <p>Your request was blocked because it contains instructions that violated the active safety guardrails (e.g. jailbreaks, injection attempts, or malicious inputs).</p>`,
-            "security"
-          );
-          
+        if (evalData.block) {
           appendMessage("system", `<span style="color:var(--accent-red); font-weight:600;">[Security Alert] Your request was blocked by security filters.</span>`);
           resetGenerationState();
           return;
@@ -1132,7 +1126,8 @@ function initializeApp() {
     });
     
     placeholders.forEach((clearText, placeholder) => {
-      const shieldHTML = `<button type="button" class="shielded-badge" onclick="showPiiDetails(this)" data-clear="${clearText.replace(/"/g, '&quot;')}"><span class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;margin-right:4px;">shield</span>Dynamic masking</button>`;
+      const maskedVal = maskedTexts.get(clearText) || "###";
+      const shieldHTML = `<button type="button" class="shielded-badge" onclick="showPiiDetails(this)" data-clear="${clearText.replace(/"/g, '&quot;')}"><span class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;margin-right:4px;">shield</span>${maskedVal}</button>`;
       output = output.replaceAll(placeholder, shieldHTML);
     });
     
@@ -1158,8 +1153,9 @@ function initializeApp() {
 
   window.showPiiDetails = (element) => {
     const clearText = element.getAttribute("data-clear");
+    const maskedVal = maskedTexts.get(clearText) || "###";
     showModal(
-      "Dynamic masking",
+      maskedVal,
       `<p>🔒 <strong>Sensitive Information Masked Locally</strong></p>
        <p>This item was intercepted and deidentified locally before leaving your browser to protect your privacy and prevent leaking credentials, personal identity info, or sensitive tokens to cloud logs or histories.</p>
        <p style="margin-top: 14px;"><strong>Protected Original Value:</strong></p>
