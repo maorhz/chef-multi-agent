@@ -96,8 +96,9 @@ function initializeApp() {
     sendBtn.innerHTML = `<span class="loader-spinner"></span>`;
     
     // A. Optimistic Client-Side Masking
+    let localMatches = [];
     try {
-      const localMatches = rawPrompt.match(MASK_REGEX) || [];
+      localMatches = rawPrompt.match(MASK_REGEX) || [];
       localMatches.forEach(match => {
         const masked = "#".repeat(match.length);
         maskedTexts.set(match, masked);
@@ -114,6 +115,7 @@ function initializeApp() {
 
     // B. Synchronous Backend Evaluation
     let finalPrompt = rawPrompt;
+    let shouldBlock = false;
     try {
       const evalRes = await fetch("/evaluate", {
         method: "POST",
@@ -139,17 +141,22 @@ function initializeApp() {
             userBubbleEl.innerHTML = renderTextWithShields(rawPrompt);
             remoteLog("[Custom UI] Dynamically updated user bubble with backend PII shields.");
           }
+          shouldBlock = true;
         }
         
         // 2. Handle active security blocks
         if (evalData.block) {
-          appendMessage("system", `<span style="color:var(--accent-red); font-weight:600;">[Security Alert] Your request was blocked by security filters.</span>`);
-          resetGenerationState();
-          return;
+          shouldBlock = true;
         }
       }
     } catch (err) {
       console.warn("Failed to contact /evaluate endpoint, falling back to client-side masking", err);
+    }
+
+    if (shouldBlock || (localMatches && localMatches.length > 0)) {
+      appendMessage("system", `<span style="color:var(--accent-red); font-weight:600;">[Security Alert] Your request was blocked by security filters.</span>`);
+      resetGenerationState();
+      return;
     }
 
     // C. Initialize Multi-Agent Stream State
