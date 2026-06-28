@@ -210,19 +210,24 @@ def patched_get_fast_api_app(self, *args, **kwargs):
             
             matches = []
             if deidentified_text and deidentified_text != text:
-                import re
-                tags = re.findall(r"\[[^\]]+\]", deidentified_text)
+                import re, difflib
+                tags = re.findall(r"\[[^\]]+\]|<[^>]+>|\*+|#+", deidentified_text)
                 if tags:
                     _CACHED_TRANSFORM = tags[0]
                     
-                import difflib
-                matcher = difflib.SequenceMatcher(None, text, deidentified_text, autojunk=False)
+                token_pattern = r"\[[^\]]+\]|<[^>]+>|\*+|#+|\w+|\s+|[^\w\s]"
+                tokens_clear = re.findall(token_pattern, text)
+                tokens_deid = re.findall(token_pattern, deidentified_text)
+                
+                matcher = difflib.SequenceMatcher(None, tokens_clear, tokens_deid, autojunk=False)
                 for tag, i1, i2, j1, j2 in matcher.get_opcodes():
                     if tag != 'equal':
-                        raw_rep = deidentified_text[j1:j2]
-                        sub_tags = re.findall(r"\[[^\]]+\]", raw_rep)
-                        clean_rep = sub_tags[0] if sub_tags else (raw_rep if raw_rep else _CACHED_TRANSFORM)
-                        matches.append({"clear": text[i1:i2], "masked": clean_rep})
+                        clear_sub = "".join(tokens_clear[i1:i2])
+                        raw_rep = "".join(tokens_deid[j1:j2])
+                        if clear_sub.strip():
+                            sub_tags = re.findall(r"\[[^\]]+\]|<[^>]+>|\*+|#+", raw_rep)
+                            clean_rep = sub_tags[0] if sub_tags else (raw_rep if raw_rep else _CACHED_TRANSFORM)
+                            matches.append({"clear": clear_sub, "masked": clean_rep})
             else:
                 import re
                 for it_name, pattern in INFO_TYPE_REGEX_MAP.items():
