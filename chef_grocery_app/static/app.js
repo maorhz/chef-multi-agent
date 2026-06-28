@@ -353,10 +353,11 @@ function initializeApp() {
   // Clickable PII detail modal triggers
   window.showPiiDetails = (element) => {
     const clearText = element.getAttribute("data-clear");
-    const maskedVal = maskedTexts.get(clearText) || "###";
+    const maskedVal = maskedTexts.get(clearText) || "[sdp-screening]";
+    const infoTypeName = maskedVal.replace(/^\[|\]$/g, "");
     showModal(
       maskedVal,
-      `<p>🔒 <strong>Sensitive Information Masked Locally</strong></p>
+      `<p><strong>Sensitive Information - ${infoTypeName}</strong></p>
        <p>This item was intercepted and deidentified locally before leaving your browser to protect your privacy and prevent leaking credentials, personal identity info, or sensitive tokens to cloud logs or histories.</p>
        <p style="margin-top: 14px;"><strong>Protected Original Value:</strong></p>
        <p style="margin-top: 6px;"><code>${clearText}</code></p>
