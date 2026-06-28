@@ -28,7 +28,8 @@ INFO_TYPE_REGEX_MAP = {
 
 _DYNAMIC_REGEX_CACHE = None
 _LAST_FETCH_TIME = 0
-_CACHE_TIMEOUT_SECONDS = 300  # Cache for 5 minutes
+_CACHE_TIMEOUT_SECONDS = 300
+_CACHED_TRANSFORM = "[redacted]"  # Cache for 5 minutes
 
 def get_dynamic_masking_regex() -> str:
     """Fetches the active SDP template and returns a compiled JS-compatible regex string."""
@@ -196,8 +197,6 @@ def patched_get_fast_api_app(self, *args, **kwargs):
     async def serve_js():
         return Response(content=static_assets.get_js(), media_type="application/javascript")
 
-    _CACHED_TRANSFORM = "[redacted]"
-
     @app.post("/evaluate")
     async def evaluate_prompt_api(request: Request):
         global _CACHED_TRANSFORM
@@ -226,9 +225,12 @@ def patched_get_fast_api_app(self, *args, **kwargs):
                         raw_rep = "".join(tokens_deid[j1:j2])
                         if clear_sub.strip():
                             sub_tags = re.findall(r"\[[^\]]+\]|<[^>]+>|\*+|#+", raw_rep)
-                            clean_rep = sub_tags[0] if sub_tags else (raw_rep if raw_rep else (_CACHED_TRANSFORM if _CACHED_TRANSFORM else "[redacted]"))
+                            clean_rep = sub_tags[0] if sub_tags else (raw_rep.strip() if raw_rep.strip() else (_CACHED_TRANSFORM if _CACHED_TRANSFORM else "[redacted]"))
                             if not clean_rep: clean_rep = "[redacted]"
-                            matches.append({"clear": clear_sub, "masked": clean_rep})
+                            for chunk in clear_sub.split("\n"):
+                                c_clean = chunk.strip()
+                                if c_clean:
+                                    matches.append({"clear": c_clean, "masked": clean_rep})
             else:
                 import re
                 for it_name, pattern in INFO_TYPE_REGEX_MAP.items():
