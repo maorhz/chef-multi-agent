@@ -36,3 +36,8 @@ scratch/
 .system_generated/
 .tempmediaStorage/
 browser/
+
+# Node / Browser Test Dependencies
+node_modules/
+package.json
+package-lock.json
