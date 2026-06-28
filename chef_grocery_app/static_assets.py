@@ -964,6 +964,7 @@ function initializeApp() {
         remoteLog("[Custom UI] /evaluate result: " + JSON.stringify(evalData));
         
         if (evalData.matches && evalData.matches.length > 0) {
+          maskedTexts.clear();
           evalData.matches.forEach(m => {
             maskedTexts.set(m.clear, m.masked);
           });

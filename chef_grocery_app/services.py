@@ -196,8 +196,11 @@ def patched_get_fast_api_app(self, *args, **kwargs):
     async def serve_js():
         return Response(content=static_assets.get_js(), media_type="application/javascript")
 
+    _CACHED_TRANSFORM = "[redacted]"
+
     @app.post("/evaluate")
     async def evaluate_prompt_api(request: Request):
+        global _CACHED_TRANSFORM
         try:
             body = await request.json()
             text = body.get("text", "")
@@ -206,26 +209,30 @@ def patched_get_fast_api_app(self, *args, **kwargs):
             block, deidentified_text = evaluate_and_sanitize_prompt(text)
             
             matches = []
-            active_transform = "[redacted]"
             if deidentified_text and deidentified_text != text:
+                import re
+                tags = re.findall(r"\[[^\]]+\]", deidentified_text)
+                if tags:
+                    _CACHED_TRANSFORM = tags[0]
+                    
                 import difflib
-                matcher = difflib.SequenceMatcher(None, text, deidentified_text)
+                matcher = difflib.SequenceMatcher(None, text, deidentified_text, autojunk=False)
                 for tag, i1, i2, j1, j2 in matcher.get_opcodes():
                     if tag != 'equal':
-                        rep = deidentified_text[j1:j2]
-                        matches.append({"clear": text[i1:i2], "masked": rep})
-                        if rep and len(rep) > 1:
-                            active_transform = rep
-                            
-            import re
-            for it_name, pattern in INFO_TYPE_REGEX_MAP.items():
-                for m in re.finditer(pattern, text):
-                    clear_m = m.group(0)
-                    if not any(clear_m in m_item["clear"] or m_item["clear"] in clear_m for m_item in matches):
-                        matches.append({"clear": clear_m, "masked": active_transform})
-                        block = True
-                        if deidentified_text is None:
-                            deidentified_text = re.sub(pattern, active_transform, text)
+                        raw_rep = deidentified_text[j1:j2]
+                        sub_tags = re.findall(r"\[[^\]]+\]", raw_rep)
+                        clean_rep = sub_tags[0] if sub_tags else (raw_rep if raw_rep else _CACHED_TRANSFORM)
+                        matches.append({"clear": text[i1:i2], "masked": clean_rep})
+            else:
+                import re
+                for it_name, pattern in INFO_TYPE_REGEX_MAP.items():
+                    for m in re.finditer(pattern, text):
+                        clear_m = m.group(0)
+                        if not any(clear_m in m_item["clear"] or m_item["clear"] in clear_m for m_item in matches):
+                            matches.append({"clear": clear_m, "masked": _CACHED_TRANSFORM})
+                            block = True
+                            if deidentified_text is None:
+                                deidentified_text = re.sub(pattern, _CACHED_TRANSFORM, text)
                         
             return JSONResponse({"block": block, "deidentified_text": deidentified_text, "matches": matches})
         except Exception as e:

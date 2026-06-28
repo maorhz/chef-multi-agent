@@ -128,6 +128,7 @@ function initializeApp() {
         
         // 1. ALWAYS extract backend PII diffs and update the user's bubble in the DOM first
         if (evalData.matches && evalData.matches.length > 0) {
+          maskedTexts.clear();
           evalData.matches.forEach(m => {
             maskedTexts.set(m.clear, m.masked);
           });
