@@ -19,6 +19,7 @@ function initializeApp() {
   let isGenerating = false;
   let activeSessionId = "session-" + Math.random().toString(36).substring(2, 15); // Fallback default
   const maskedTexts = new Map();
+  const infoTypesMap = new Map();
 
   // Dynamic ADK Session Registration
   async function createAdkSession() {
@@ -129,8 +130,10 @@ function initializeApp() {
         // 1. ALWAYS extract backend PII diffs and update the user's bubble in the DOM first
         if (evalData.matches && evalData.matches.length > 0) {
           maskedTexts.clear();
+          infoTypesMap.clear();
           evalData.matches.forEach(m => {
             maskedTexts.set(m.clear, m.masked);
+            if (m.infoType) infoTypesMap.set(m.clear, m.infoType);
           });
           if (evalData.deidentified_text) finalPrompt = evalData.deidentified_text;
           const userBubbleEl = document.getElementById(userBubbleId);
@@ -324,7 +327,8 @@ function initializeApp() {
     placeholders.forEach((clearText, placeholder) => {
       const maskedVal = maskedTexts.get(clearText);
       const badgeText = (maskedVal && maskedVal.length > 0) ? maskedVal : "[redacted]";
-      const shieldHTML = `<button type="button" class="shielded-badge" onclick="showPiiDetails(this)" data-clear="${clearText.replace(/"/g, '&quot;')}"><span class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;margin-right:4px;">shield</span>${badgeText}</button>`;
+      const infoTypeVal = infoTypesMap.get(clearText) || "SDP_DETECTED";
+      const shieldHTML = `<button type="button" class="shielded-badge" onclick="showPiiDetails(this)" data-clear="${clearText.replace(/"/g, '&quot;')}" data-infotype="${infoTypeVal}"><span class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;margin-right:4px;">shield</span>${badgeText}</button>`;
       output = output.replaceAll(placeholder, shieldHTML);
     });
     
@@ -353,11 +357,11 @@ function initializeApp() {
   // Clickable PII detail modal triggers
   window.showPiiDetails = (element) => {
     const clearText = element.getAttribute("data-clear");
+    const infoTypeVal = element.getAttribute("data-infotype") || "SDP_DETECTED";
     const maskedVal = maskedTexts.get(clearText) || "[sdp-screening]";
-    const infoTypeName = maskedVal.replace(/^\[|\]$/g, "");
     showModal(
       maskedVal,
-      `<p><strong>Sensitive Information - ${infoTypeName}</strong></p>
+      `<p><strong>Sensitive Information - ${infoTypeVal}</strong></p>
        <p>This item was intercepted and deidentified locally before leaving your browser to protect your privacy and prevent leaking credentials, personal identity info, or sensitive tokens to cloud logs or histories.</p>
        <p style="margin-top: 14px;"><strong>Protected Original Value:</strong></p>
        <p style="margin-top: 6px;"><code>${clearText}</code></p>

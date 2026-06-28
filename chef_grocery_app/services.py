@@ -114,8 +114,10 @@ def evaluate_and_sanitize_prompt(prompt_text: str) -> tuple[bool, str | None]:
             found_infotypes = {finding.info_type for finding in sdp_filter_result.inspect_result.findings}
             
         deidentified_infotypes = set()
+        info_types_list = []
         if sdp_filter_result.deidentify_result and sdp_filter_result.deidentify_result.info_types:
             deidentified_infotypes = set(sdp_filter_result.deidentify_result.info_types)
+            info_types_list = list(sdp_filter_result.deidentify_result.info_types)
             if sdp_filter_result.deidentify_result.match_state == modelarmor_v1.FilterMatchState.MATCH_FOUND:
                 deidentified_text = sdp_filter_result.deidentify_result.data.text
                 
@@ -127,7 +129,7 @@ def evaluate_and_sanitize_prompt(prompt_text: str) -> tuple[bool, str | None]:
         elif deidentified_text is not None:
             block = True
 
-    return block, deidentified_text
+    return block, deidentified_text, info_types_list
 
 
 # Monkeypatch prepare_llm_agent_input in adk to sanitize workflow/node input
@@ -205,7 +207,7 @@ def patched_get_fast_api_app(self, *args, **kwargs):
             text = body.get("text", "")
             if not text:
                 return JSONResponse({"block": False, "deidentified_text": None, "matches": []})
-            block, deidentified_text = evaluate_and_sanitize_prompt(text)
+            block, deidentified_text, info_types_list = evaluate_and_sanitize_prompt(text)
             
             matches = []
             if deidentified_text and deidentified_text != text:
@@ -219,6 +221,7 @@ def patched_get_fast_api_app(self, *args, **kwargs):
                 tokens_deid = re.findall(token_pattern, deidentified_text)
                 
                 matcher = difflib.SequenceMatcher(None, tokens_clear, tokens_deid, autojunk=False)
+                match_idx = 0
                 for tag, i1, i2, j1, j2 in matcher.get_opcodes():
                     if tag != 'equal':
                         clear_sub = "".join(tokens_clear[i1:i2])
@@ -230,14 +233,16 @@ def patched_get_fast_api_app(self, *args, **kwargs):
                             for chunk in clear_sub.split("\n"):
                                 c_clean = chunk.strip()
                                 if c_clean:
-                                    matches.append({"clear": c_clean, "masked": clean_rep})
+                                    it_name = info_types_list[match_idx] if match_idx < len(info_types_list) else "SDP_DETECTED"
+                                    matches.append({"clear": c_clean, "masked": clean_rep, "infoType": it_name})
+                                    match_idx += 1
             else:
                 import re
                 for it_name, pattern in INFO_TYPE_REGEX_MAP.items():
                     for m in re.finditer(pattern, text):
                         clear_m = m.group(0)
                         if not any(clear_m in m_item["clear"] or m_item["clear"] in clear_m for m_item in matches):
-                            matches.append({"clear": clear_m, "masked": _CACHED_TRANSFORM})
+                            matches.append({"clear": clear_m, "masked": _CACHED_TRANSFORM, "infoType": it_name})
                             block = True
                             if deidentified_text is None:
                                 deidentified_text = re.sub(pattern, _CACHED_TRANSFORM, text)
