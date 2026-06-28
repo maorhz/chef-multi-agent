@@ -322,8 +322,9 @@ function initializeApp() {
     
     // Step 2: Replace all placeholders with the beautiful interactive shield buttons
     placeholders.forEach((clearText, placeholder) => {
-      const maskedVal = maskedTexts.get(clearText) || "[redacted]";
-      const shieldHTML = `<button type="button" class="shielded-badge" onclick="showPiiDetails(this)" data-clear="${clearText.replace(/"/g, '&quot;')}"><span class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;margin-right:4px;">shield</span>${maskedVal}</button>`;
+      const maskedVal = maskedTexts.get(clearText);
+      const badgeText = (maskedVal && maskedVal.length > 0) ? maskedVal : "[redacted]";
+      const shieldHTML = `<button type="button" class="shielded-badge" onclick="showPiiDetails(this)" data-clear="${clearText.replace(/"/g, '&quot;')}"><span class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;margin-right:4px;">shield</span>${badgeText}</button>`;
       output = output.replaceAll(placeholder, shieldHTML);
     });
     
