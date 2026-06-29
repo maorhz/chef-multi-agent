@@ -953,6 +953,7 @@ function initializeApp() {
 
     let finalPrompt = rawPrompt;
     let shouldBlock = false;
+    let evalSucceeded = false;
     try {
       const evalRes = await fetch("/evaluate", {
         method: "POST",
@@ -961,6 +962,7 @@ function initializeApp() {
       });
       
       if (evalRes.ok) {
+        evalSucceeded = true;
         const evalData = await evalRes.json();
         remoteLog("[Custom UI] /evaluate result: " + JSON.stringify(evalData));
         
@@ -997,7 +999,8 @@ function initializeApp() {
       console.warn("Failed to contact /evaluate endpoint, falling back to client-side masking", err);
     }
 
-    if (shouldBlock || (localMatches && localMatches.length > 0)) {
+    const blockDecision = evalSucceeded ? shouldBlock : (shouldBlock || (localMatches && localMatches.length > 0));
+    if (blockDecision) {
       appendMessage("system", `<span style="color:var(--accent-red); font-weight:600;">[Security Alert] Your request was blocked by security filters.</span>`);
       resetGenerationState();
       return;
