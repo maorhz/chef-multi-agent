@@ -146,7 +146,7 @@ def patched_prepare_llm_agent_input(agent, ctx, node_input):
         prompt_text = "".join(part.text for part in content_input.parts if part.text)
         print(f"DEBUG patched_prepare_llm_agent_input resolved prompt_text: {prompt_text}", file=sys.stderr, flush=True)
         if prompt_text:
-            block, deidentified_text = evaluate_and_sanitize_prompt(prompt_text)
+            block, deidentified_text, _ = evaluate_and_sanitize_prompt(prompt_text)
             print(f"DEBUG patched_prepare_llm_agent_input evaluate_and_sanitize_prompt: block={block} deidentified_text={deidentified_text}", file=sys.stderr, flush=True)
             if block:
                 node_input = types.Content(
