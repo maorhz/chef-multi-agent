@@ -964,33 +964,29 @@ function initializeApp() {
         const evalData = await evalRes.json();
         remoteLog("[Custom UI] /evaluate result: " + JSON.stringify(evalData));
         
+        maskedTexts.clear();
+        infoTypesMap.clear();
+        
         if (evalData.matches && evalData.matches.length > 0) {
-          maskedTexts.clear();
-          infoTypesMap.clear();
           evalData.matches.forEach(m => {
             maskedTexts.set(m.clear, m.masked);
             if (m.infoType) infoTypesMap.set(m.clear, m.infoType);
           });
           if (evalData.deidentified_text) finalPrompt = evalData.deidentified_text;
-          const userBubbleEl = document.getElementById(userBubbleId);
-          if (userBubbleEl) {
-            userBubbleEl.innerHTML = renderTextWithShields(rawPrompt);
-            remoteLog("[Custom UI] Dynamically updated user bubble with backend PII shields.");
-          }
           shouldBlock = true;
-        } else if (evalData.deidentified_text) {
+        } else if (evalData.deidentified_text && evalData.deidentified_text !== rawPrompt) {
           finalPrompt = evalData.deidentified_text;
           const backendMatches = extractPIIDiffs(rawPrompt, finalPrompt);
           backendMatches.forEach(([clearText, maskedText]) => {
             maskedTexts.set(clearText, maskedText);
           });
-          
-          const userBubbleEl = document.getElementById(userBubbleId);
-          if (userBubbleEl) {
-            userBubbleEl.innerHTML = renderTextWithShields(rawPrompt);
-            remoteLog("[Custom UI] Dynamically updated user bubble with backend PII shields.");
-          }
           shouldBlock = true;
+        }
+        
+        const userBubbleEl = document.getElementById(userBubbleId);
+        if (userBubbleEl) {
+          userBubbleEl.innerHTML = renderTextWithShields(rawPrompt);
+          remoteLog("[Custom UI] Dynamically updated user bubble with backend PII shields.");
         }
         
         if (evalData.block) {

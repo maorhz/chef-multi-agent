@@ -127,38 +127,31 @@ function initializeApp() {
         const evalData = await evalRes.json();
         remoteLog("[Custom UI] /evaluate result: " + JSON.stringify(evalData));
         
-        // 1. ALWAYS extract backend PII diffs and update the user's bubble in the DOM first
+        maskedTexts.clear();
+        infoTypesMap.clear();
+        
         if (evalData.matches && evalData.matches.length > 0) {
-          maskedTexts.clear();
-          infoTypesMap.clear();
           evalData.matches.forEach(m => {
             maskedTexts.set(m.clear, m.masked);
             if (m.infoType) infoTypesMap.set(m.clear, m.infoType);
           });
           if (evalData.deidentified_text) finalPrompt = evalData.deidentified_text;
-          const userBubbleEl = document.getElementById(userBubbleId);
-          if (userBubbleEl) {
-            userBubbleEl.innerHTML = renderTextWithShields(rawPrompt);
-            remoteLog("[Custom UI] Dynamically updated user bubble with backend PII shields.");
-          }
           shouldBlock = true;
-        } else if (evalData.deidentified_text) {
+        } else if (evalData.deidentified_text && evalData.deidentified_text !== rawPrompt) {
           finalPrompt = evalData.deidentified_text;
           const backendMatches = extractPIIDiffs(rawPrompt, finalPrompt);
           backendMatches.forEach(([clearText, maskedText]) => {
             maskedTexts.set(clearText, maskedText);
           });
-          
-          // Re-render and dynamically update the user's chat bubble with the complete set of shields!
-          const userBubbleEl = document.getElementById(userBubbleId);
-          if (userBubbleEl) {
-            userBubbleEl.innerHTML = renderTextWithShields(rawPrompt);
-            remoteLog("[Custom UI] Dynamically updated user bubble with backend PII shields.");
-          }
           shouldBlock = true;
         }
         
-        // 2. Handle active security blocks
+        const userBubbleEl = document.getElementById(userBubbleId);
+        if (userBubbleEl) {
+          userBubbleEl.innerHTML = renderTextWithShields(rawPrompt);
+          remoteLog("[Custom UI] Dynamically updated user bubble with backend PII shields.");
+        }
+        
         if (evalData.block) {
           shouldBlock = true;
         }

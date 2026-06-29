@@ -235,18 +235,6 @@ def patched_get_fast_api_app(self, *args, **kwargs):
                                 if c_clean:
                                     it_name = info_types_list[match_idx] if match_idx < len(info_types_list) else "SDP_DETECTED"
                                     matches.append({"clear": c_clean, "masked": clean_rep, "infoType": it_name})
-                                    match_idx += 1
-            else:
-                import re
-                for it_name, pattern in INFO_TYPE_REGEX_MAP.items():
-                    for m in re.finditer(pattern, text):
-                        clear_m = m.group(0)
-                        if not any(clear_m in m_item["clear"] or m_item["clear"] in clear_m for m_item in matches):
-                            matches.append({"clear": clear_m, "masked": _CACHED_TRANSFORM, "infoType": it_name})
-                            block = True
-                            if deidentified_text is None:
-                                deidentified_text = re.sub(pattern, _CACHED_TRANSFORM, text)
-                        
             return JSONResponse({"block": block, "deidentified_text": deidentified_text, "matches": matches})
         except Exception as e:
             import traceback
