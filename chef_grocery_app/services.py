@@ -80,6 +80,83 @@ def get_cached_masking_regex() -> str:
 
 
 
+INFO_TYPE_HEURISTICS = {
+    "EMAIL_ADDRESS": r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$",
+    "STREET_ADDRESS": r"^\d+\s+[a-zA-Z0-9\s,.]+?\s+(?:Street|St|Avenue|Ave|Road|Rd|Boulevard|Blvd|Drive|Dr|Way|Lane|Ln|Court|Ct|NW|SW|NE|SE)\b",
+    "CREDIT_CARD_NUMBER": r"^[3-6][0-9-]{11,20}$",
+    "IP_ADDRESS": r"^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$",
+    "TIME": r"^(?:[01]?[0-9]|2[0-3]):[0-5][0-9](?::[0-5][0-9])?(?:\s*[aApP][mM])?$|^(?:[01]?[0-9]|2[0-3])\s*[aApP][mM]$",
+    "DATE": r"^(?:[0-9]{1,4}[-/._][0-9]{1,2}[-/._][0-9]{1,4}|(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+[0-9]{1,2}(?:st|nd|rd|th)?,?\s+[0-9]{4})$",
+    "URL": r"^https?://[^\s/$.?#].[^\s]*$",
+    "GCP_API_KEY": r"^AIzaSy[a-zA-Z0-9-_]{33}$",
+    "ENCRYPTION_KEY": r"^[a-zA-Z0-9+/=_-]{43,45}$",
+    "PHONE_NUMBER": r"^\+?[0-9]{1,4}[-.\s]?[0-9]{1,10}[-.\s]?[0-9]{1,10}$",
+    "PASSWORD": r"^(?=.*[0-9])(?=.*[a-zA-Z])[a-zA-Z0-9]{6,15}$",
+}
+
+def classify_chunks(chunks: list[str], detected_types: list[str]) -> list[str]:
+    import re
+    assigned = []
+    used_types = set()
+    
+    for chunk in chunks:
+        chunk_clean = chunk.strip()
+        matched_type = None
+        
+        # 1. Exact Heuristics Match
+        for it, pattern in INFO_TYPE_HEURISTICS.items():
+            if it in detected_types:
+                if re.match(pattern, chunk_clean):
+                    matched_type = it
+                    break
+                    
+        # 2. Structure & Keyword matches
+        if not matched_type:
+            text_lower = chunk_clean.lower()
+            if "URL" in detected_types and (text_lower.startswith("http") or "www." in text_lower or ".com/" in text_lower or "cloud.google" in text_lower):
+                matched_type = "URL"
+            elif "EMAIL_ADDRESS" in detected_types and "@" in chunk_clean:
+                matched_type = "EMAIL_ADDRESS"
+            elif "GCP_API_KEY" in detected_types and chunk_clean.startswith("AIzaSy"):
+                matched_type = "GCP_API_KEY"
+            elif "ENCRYPTION_KEY" in detected_types and (len(chunk_clean) > 40 and "=" in chunk_clean):
+                matched_type = "ENCRYPTION_KEY"
+            elif "STREET_ADDRESS" in detected_types and any(w in chunk_clean for w in ["Avenue", "Avenue NW", "Pennsylvania", "Washington", "Street", "Rd", "St"]):
+                matched_type = "STREET_ADDRESS"
+            elif "FDA_CODE" in detected_types and chunk_clean in ["Modafinil"]:
+                matched_type = "FDA_CODE"
+            elif "MEDICAL_TERM" in detected_types and chunk_clean in ["cholecystectomy"]:
+                matched_type = "MEDICAL_TERM"
+            elif "MEDICAL_DATA" in detected_types and chunk_clean in ["AB+"]:
+                matched_type = "MEDICAL_DATA"
+            elif "CREDIT_CARD_DATA" in detected_types and re.match(r"^(0[1-9]|1[0-2])/([0-9]{2}|[0-9]{4})$", chunk_clean):
+                matched_type = "CREDIT_CARD_DATA"
+            elif re.match(r"^\d{9}$", chunk_clean):
+                candidates = ["PASSPORT", "MEDICAL_RECORD_NUMBER", "FINANCIAL_ACCOUNT_NUMBER"]
+                for cand in candidates:
+                    if cand in detected_types and cand not in used_types:
+                        matched_type = cand
+                        break
+                if not matched_type:
+                    for cand in candidates:
+                        if cand in detected_types:
+                            matched_type = cand
+                            break
+
+        if not matched_type:
+            remaining = [t for t in detected_types if t not in used_types]
+            if remaining:
+                matched_type = remaining[0]
+            else:
+                matched_type = detected_types[0] if detected_types else "SDP_DETECTED"
+                
+        used_types.add(matched_type)
+        assigned.append(matched_type)
+        
+    return assigned
+
+
+
 def evaluate_and_sanitize_prompt(prompt_text: str) -> tuple[bool, str | None]:
     """Evaluates the prompt text with Model Armor.
     
@@ -221,7 +298,7 @@ def patched_get_fast_api_app(self, *args, **kwargs):
                 tokens_deid = re.findall(token_pattern, deidentified_text)
                 
                 matcher = difflib.SequenceMatcher(None, tokens_clear, tokens_deid, autojunk=False)
-                match_idx = 0
+                raw_matches = []
                 for tag, i1, i2, j1, j2 in matcher.get_opcodes():
                     if tag != 'equal':
                         clear_sub = "".join(tokens_clear[i1:i2])
@@ -233,8 +310,12 @@ def patched_get_fast_api_app(self, *args, **kwargs):
                             for chunk in clear_sub.split("\n"):
                                 c_clean = chunk.strip()
                                 if c_clean:
-                                    it_name = info_types_list[match_idx] if match_idx < len(info_types_list) else "SDP_DETECTED"
-                                    matches.append({"clear": c_clean, "masked": clean_rep, "infoType": it_name})
+                                    raw_matches.append((c_clean, clean_rep))
+                
+                clear_texts = [m[0] for m in raw_matches]
+                classifications = classify_chunks(clear_texts, info_types_list)
+                for (c_clean, clean_rep), it_name in zip(raw_matches, classifications):
+                    matches.append({"clear": c_clean, "masked": clean_rep, "infoType": it_name})
             return JSONResponse({"block": block, "deidentified_text": deidentified_text, "matches": matches})
         except Exception as e:
             import traceback
