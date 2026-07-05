@@ -276,10 +276,32 @@ def patched_get_fast_api_app(self, *args, **kwargs):
     async def serve_js():
         return Response(content=static_assets.get_js(), media_type="application/javascript")
 
+    _EVALUATE_RATE_LIMIT = {}
+    _MAX_EVALS_PER_MIN = 15
+    _RATE_WINDOW_SECS = 60
+
+    def check_eval_rate_limit(client_key: str) -> bool:
+        now = time.time()
+        timestamps = [t for t in _EVALUATE_RATE_LIMIT.get(client_key, []) if now - t < _RATE_WINDOW_SECS]
+        _EVALUATE_RATE_LIMIT[client_key] = timestamps
+        if len(timestamps) >= _MAX_EVALS_PER_MIN:
+            return False
+        timestamps.append(now)
+        return True
+
     @app.post("/evaluate")
     async def evaluate_prompt_api(request: Request):
         global _CACHED_TRANSFORM
         try:
+            session_id = request.headers.get("X-Session-ID")
+            if not session_id or not session_id.strip():
+                return JSONResponse({"error": "Unauthorized: Missing X-Session-ID header"}, status_code=401)
+
+            client_host = request.client.host if request.client else "unknown"
+            rate_key = f"{session_id}:{client_host}"
+            if not check_eval_rate_limit(rate_key):
+                return JSONResponse({"error": "Too Many Requests: Rate limit exceeded"}, status_code=429)
+
             body = await request.json()
             text = body.get("text", "")
             if not text:

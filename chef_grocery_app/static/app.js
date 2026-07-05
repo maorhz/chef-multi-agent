@@ -120,7 +120,10 @@ function initializeApp() {
     try {
       const evalRes = await fetch("/evaluate", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "X-Session-ID": activeSessionId
+        },
         body: JSON.stringify({ text: rawPrompt })
       });
       
