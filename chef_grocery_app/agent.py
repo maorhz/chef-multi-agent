@@ -9,14 +9,23 @@ from google.adk.models.llm_response import LlmResponse
 import logging
 from . import services
 
+import os
+
 # Set up logging
 logger = logging.getLogger("model_armor")
 logger.setLevel(logging.INFO)
 
-# Initialize Model Armor Client for us-central1 region
-client_options = ClientOptions(api_endpoint="modelarmor.us-central1.rep.googleapis.com")
+# Configurable GCP Environment Variables
+PROJECT_ID = os.getenv("GCP_PROJECT_ID", "my-project-76851-371010")
+REGION = os.getenv("GCP_LOCATION", "us-central1")
+TEMPLATE_NAME = os.getenv(
+    "MODEL_ARMOR_TEMPLATE_NAME",
+    f"projects/{PROJECT_ID}/locations/{REGION}/templates/agent-shield"
+)
+
+# Initialize Model Armor Client for specified region
+client_options = ClientOptions(api_endpoint=f"modelarmor.{REGION}.rep.googleapis.com")
 model_armor_client = modelarmor_v1.ModelArmorClient(client_options=client_options)
-TEMPLATE_NAME = "projects/my-project-76851-371010/locations/us-central1/templates/agent-shield"
 
 
 def evaluate_and_sanitize_prompt(prompt_text: str) -> tuple[bool, str | None]:

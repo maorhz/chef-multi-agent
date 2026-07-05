@@ -5,14 +5,27 @@ import time
 import google.auth
 from google.auth.transport.requests import AuthorizedSession
 
+import os
+
 # Set up logging
 logger = logging.getLogger("model_armor_services")
 logger.setLevel(logging.INFO)
 
-# Initialize Model Armor Client for us-central1 region
-client_options = ClientOptions(api_endpoint="modelarmor.us-central1.rep.googleapis.com")
+# Configurable GCP Environment Variables
+PROJECT_ID = os.getenv("GCP_PROJECT_ID", "my-project-76851-371010")
+REGION = os.getenv("GCP_LOCATION", "us-central1")
+TEMPLATE_NAME = os.getenv(
+    "MODEL_ARMOR_TEMPLATE_NAME",
+    f"projects/{PROJECT_ID}/locations/{REGION}/templates/agent-shield"
+)
+INSPECT_TEMPLATE_NAME = os.getenv(
+    "DLP_INSPECT_TEMPLATE_NAME",
+    f"projects/{PROJECT_ID}/locations/{REGION}/inspectTemplates/2828347596800781685"
+)
+
+# Initialize Model Armor Client for specified region
+client_options = ClientOptions(api_endpoint=f"modelarmor.{REGION}.rep.googleapis.com")
 model_armor_client = modelarmor_v1.ModelArmorClient(client_options=client_options)
-TEMPLATE_NAME = "projects/my-project-76851-371010/locations/us-central1/templates/agent-shield"
 
 INFO_TYPE_REGEX_MAP = {
     "EMAIL_ADDRESS": r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}",
@@ -34,15 +47,12 @@ _CACHED_TRANSFORM = "[redacted]"  # Cache for 5 minutes
 def get_dynamic_masking_regex() -> str:
     """Fetches the active SDP template and returns a compiled JS-compatible regex string."""
     try:
-        # Template ID for inspectTemplate configured in Model Armor Template
-        inspect_template_name = "projects/my-project-76851-371010/locations/us-central1/inspectTemplates/2828347596800781685"
-        
         credentials, project = google.auth.default()
         if hasattr(credentials, "quota_project_id"):
-            credentials = credentials.with_quota_project("my-project-76851-371010")
+            credentials = credentials.with_quota_project(PROJECT_ID)
             
         session = AuthorizedSession(credentials)
-        url = f"https://dlp.googleapis.com/v2/{inspect_template_name}"
+        url = f"https://dlp.googleapis.com/v2/{INSPECT_TEMPLATE_NAME}"
         res = session.get(url)
         if res.status_code == 200:
             config = res.json().get("inspectConfig", {})
