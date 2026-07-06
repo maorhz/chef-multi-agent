@@ -376,10 +376,10 @@ def patched_get_fast_api_app(self, *args, **kwargs):
 
             path = scope.get("path", "")
             
-            # 1. Direct Interception for Custom UI Root Page
-            if path == "/" or path == "/index.html":
+            # 1. Direct Interception for Custom UI (Root Page and /dev-ui)
+            if path in ("/", "/index.html", "/dev-ui", "/dev-ui/") or path.startswith("/dev-ui"):
                 import sys
-                print(f"DEBUG middleware: Intercepting root path to serve custom gourmet UI from static_assets!", file=sys.stderr, flush=True)
+                print(f"DEBUG middleware: Intercepting path {path} to serve custom gourmet UI from static_assets!", file=sys.stderr, flush=True)
                 try:
                     html = static_assets.get_html()
                     import json
