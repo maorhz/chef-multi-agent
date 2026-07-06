@@ -308,7 +308,19 @@ class CustomUIMiddleware:
                 return
         await self.app(scope, receive, send)
 
+async def custom_ui_route_handler(request: Request):
+    import json
+    html = static_assets.get_html()
+    regex_str = get_cached_masking_regex()
+    html = html.replace("MASK_REGEX_PLACEHOLDER", json.dumps(regex_str))
+    return HTMLResponse(content=html, media_type="text/html")
+
 def attach_custom_ui_middleware(app):
+    for route in list(app.router.routes):
+        path = getattr(route, "path", "")
+        if path in ("/", "/index.html", "/dev-ui", "/dev-ui/"):
+            route.endpoint = custom_ui_route_handler
+
     original_build_stack = app.build_middleware_stack
     def patched_build_stack():
         stack = original_build_stack()
