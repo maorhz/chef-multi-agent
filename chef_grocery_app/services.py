@@ -259,6 +259,36 @@ import os
 
 original_get_app = api_server.ApiServer.get_fast_api_app
 
+try:
+    import chef_grocery_app.static_assets as static_assets
+except ImportError:
+    import static_assets
+
+class CustomUIMiddleware:
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "http":
+            path = scope.get("path", "")
+            if path in ("/", "/index.html", "/dev-ui", "/dev-ui/") or path.startswith("/dev-ui"):
+                import json
+                html = static_assets.get_html()
+                regex_str = get_cached_masking_regex()
+                html = html.replace("MASK_REGEX_PLACEHOLDER", json.dumps(regex_str))
+                response = HTMLResponse(content=html, media_type="text/html")
+                await response(scope, receive, send)
+                return
+        await self.app(scope, receive, send)
+
+def attach_custom_ui_middleware(app):
+    original_build_stack = app.build_middleware_stack
+    def patched_build_stack():
+        stack = original_build_stack()
+        return CustomUIMiddleware(stack)
+    app.build_middleware_stack = patched_build_stack
+    return app
+
 def patched_get_fast_api_app(self, *args, **kwargs):
     # Try to resolve web_assets_dir
     web_assets_dir = kwargs.get("web_assets_dir")
@@ -364,30 +394,19 @@ def patched_get_fast_api_app(self, *args, **kwargs):
         except Exception as e:
             return JSONResponse({"error": str(e)}, status_code=500)
 
-    class CustomUIMiddleware:
-        def __init__(self, app):
-            self.app = app
-
-        async def __call__(self, scope, receive, send):
-            if scope["type"] == "http":
-                path = scope.get("path", "")
-                if path in ("/", "/index.html", "/dev-ui", "/dev-ui/") or path.startswith("/dev-ui"):
-                    import json
-                    html = static_assets.get_html()
-                    regex_str = get_cached_masking_regex()
-                    html = html.replace("MASK_REGEX_PLACEHOLDER", json.dumps(regex_str))
-                    response = HTMLResponse(content=html, media_type="text/html")
-                    await response(scope, receive, send)
-                    return
-            await self.app(scope, receive, send)
-
-    original_build_stack = app.build_middleware_stack
-
-    def patched_build_stack():
-        stack = original_build_stack()
-        return CustomUIMiddleware(stack)
-
-    app.build_middleware_stack = patched_build_stack
-    return app
+    return attach_custom_ui_middleware(app)
 
 api_server.ApiServer.get_fast_api_app = patched_get_fast_api_app
+
+try:
+    import google.adk.cli.dev_server as dev_server_module
+    orig_dev_get_app = dev_server_module.DevServer.get_fast_api_app
+
+    def patched_dev_get_app(self, *args, **kwargs):
+        app = orig_dev_get_app(self, *args, **kwargs)
+        return attach_custom_ui_middleware(app)
+
+    dev_server_module.DevServer.get_fast_api_app = patched_dev_get_app
+except Exception as e:
+    import sys
+    print(f"Note: Could not patch DevServer.get_fast_api_app: {e}", file=sys.stderr, flush=True)
