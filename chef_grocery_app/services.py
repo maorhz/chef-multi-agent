@@ -364,41 +364,24 @@ def patched_get_fast_api_app(self, *args, **kwargs):
         except Exception as e:
             return JSONResponse({"error": str(e)}, status_code=500)
 
-    # Remove any default ADK routes for /, /dev-ui that cause 307 redirects or serve default ADK dev-ui
-    app.router.routes = [
-        r for r in app.router.routes
-        if getattr(r, "path", "") not in ("/", "/dev-ui", "/dev-ui/") and not getattr(r, "path", "").startswith("/dev-ui")
-    ]
+    class CustomUIMiddleware:
+        def __init__(self, app):
+            self.app = app
 
-    async def serve_custom_ui_content():
-        import json
-        html = static_assets.get_html()
-        regex_str = get_cached_masking_regex()
-        html = html.replace("MASK_REGEX_PLACEHOLDER", json.dumps(regex_str))
-        return HTMLResponse(content=html, media_type="text/html")
+        async def __call__(self, scope, receive, send):
+            if scope["type"] == "http":
+                path = scope.get("path", "")
+                if path in ("/", "/index.html", "/dev-ui", "/dev-ui/") or path.startswith("/dev-ui"):
+                    import json
+                    html = static_assets.get_html()
+                    regex_str = get_cached_masking_regex()
+                    html = html.replace("MASK_REGEX_PLACEHOLDER", json.dumps(regex_str))
+                    response = HTMLResponse(content=html, media_type="text/html")
+                    await response(scope, receive, send)
+                    return
+            await self.app(scope, receive, send)
 
-    @app.get("/", response_class=HTMLResponse)
-    async def custom_root_ui():
-        return await serve_custom_ui_content()
-
-    @app.get("/index.html", response_class=HTMLResponse)
-    async def custom_index_ui():
-        return await serve_custom_ui_content()
-
-    @app.get("/dev-ui", response_class=HTMLResponse)
-    async def custom_devui_ui():
-        return await serve_custom_ui_content()
-
-    @app.get("/dev-ui/", response_class=HTMLResponse)
-    async def custom_devui_slash_ui():
-        return await serve_custom_ui_content()
-
-    @app.get("/dev-ui/{rest_of_path:path}", response_class=HTMLResponse)
-    async def custom_devui_subpath_ui(rest_of_path: str):
-        return await serve_custom_ui_content()
-
-    import sys
-    print(f"DEBUG patched_get_fast_api_app registered routes: {[r.path for r in app.routes]}", file=sys.stderr, flush=True)
+    app.add_middleware(CustomUIMiddleware)
     return app
 
 api_server.ApiServer.get_fast_api_app = patched_get_fast_api_app
