@@ -264,20 +264,29 @@ try:
 except ImportError:
     import static_assets
 
-# Overwrite ADK default browser/index.html on disk if it exists
+# Overwrite ADK default browser/index.html on disk across all potential locations (/app, site-packages, etc.)
 try:
+    import glob, json
     import google.adk.cli.fast_api as fast_api_module
-    adk_browser_dir = os.path.join(os.path.dirname(fast_api_module.__file__), "browser")
-    adk_browser_index = os.path.join(adk_browser_dir, "index.html")
-    if os.path.exists(adk_browser_index):
-        import json
-        html_content = static_assets.get_html()
-        regex_str = get_cached_masking_regex()
-        html_content = html_content.replace("MASK_REGEX_PLACEHOLDER", json.dumps(regex_str))
-        with open(adk_browser_index, "w", encoding="utf-8") as f:
-            f.write(html_content)
-        import sys
-        print(f"DEBUG services.py: Successfully overwrote ADK index.html at {adk_browser_index}", file=sys.stderr, flush=True)
+    html_content = static_assets.get_html()
+    regex_str = get_cached_masking_regex()
+    html_content = html_content.replace("MASK_REGEX_PLACEHOLDER", json.dumps(regex_str))
+
+    search_patterns = [
+        "/app/**/browser/index.html",
+        "/app/**/index.html",
+        os.path.join(os.getcwd(), "**/browser/index.html"),
+        os.path.join(os.path.dirname(fast_api_module.__file__), "**/index.html"),
+    ]
+    for pattern in search_patterns:
+        for p in glob.glob(pattern, recursive=True):
+            try:
+                with open(p, "w", encoding="utf-8") as f:
+                    f.write(html_content)
+                import sys
+                print(f"DEBUG services.py: Overwrote ADK index.html at {p}", file=sys.stderr, flush=True)
+            except Exception as _ex:
+                pass
 except Exception as _e:
     import sys
     print(f"Note: Could not overwrite ADK index.html: {_e}", file=sys.stderr, flush=True)
