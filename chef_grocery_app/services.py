@@ -449,3 +449,37 @@ try:
 except Exception as e:
     import sys
     print(f"Note: Could not patch DevServer.get_fast_api_app: {e}", file=sys.stderr, flush=True)
+
+# Scan garbage collector for any FastAPI instances already created prior to importing services.py
+def patch_existing_fastapi_instances():
+    import gc
+    from fastapi import FastAPI, Response
+    found = 0
+    for obj in gc.get_objects():
+        try:
+            if isinstance(obj, FastAPI):
+                attach_custom_ui_middleware(obj)
+                route_paths = [getattr(r, "path", "") for r in obj.router.routes]
+                if "/evaluate" not in route_paths:
+                    obj.add_api_route("/evaluate", evaluate_prompt_api, methods=["POST"])
+                if "/api/log" not in route_paths:
+                    obj.add_api_route("/api/log", log_client_message, methods=["POST"])
+                if "/static/styles.css" not in route_paths:
+                    async def _serve_css():
+                        return Response(content=static_assets.get_css(), media_type="text/css")
+                    obj.add_api_route("/static/styles.css", _serve_css, methods=["GET"])
+                if "/static/app.js" not in route_paths:
+                    async def _serve_js():
+                        return Response(content=static_assets.get_js(), media_type="application/javascript")
+                    obj.add_api_route("/static/app.js", _serve_js, methods=["GET"])
+                found += 1
+        except Exception:
+            pass
+    import sys
+    print(f"DEBUG services.py: Patched {found} existing FastAPI app instances from gc", file=sys.stderr, flush=True)
+
+try:
+    patch_existing_fastapi_instances()
+except Exception as _e:
+    import sys
+    print(f"Error scanning gc for FastAPI instances: {_e}", file=sys.stderr, flush=True)
