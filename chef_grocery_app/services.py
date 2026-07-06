@@ -364,55 +364,39 @@ def patched_get_fast_api_app(self, *args, **kwargs):
         except Exception as e:
             return JSONResponse({"error": str(e)}, status_code=500)
 
-    # Serve patched index.html via raw ASGI middleware
-    class PatchedIndexMiddleware:
-        def __init__(self, app):
-            self.app = app
+    # Remove any default ADK routes for /, /dev-ui that cause 307 redirects or serve default ADK dev-ui
+    app.router.routes = [
+        r for r in app.router.routes
+        if getattr(r, "path", "") not in ("/", "/dev-ui", "/dev-ui/") and not getattr(r, "path", "").startswith("/dev-ui")
+    ]
 
-        async def __call__(self, scope, receive, send):
-            if scope["type"] != "http":
-                await self.app(scope, receive, send)
-                return
+    async def serve_custom_ui_content():
+        import json
+        html = static_assets.get_html()
+        regex_str = get_cached_masking_regex()
+        html = html.replace("MASK_REGEX_PLACEHOLDER", json.dumps(regex_str))
+        return HTMLResponse(content=html, media_type="text/html")
 
-            path = scope.get("path", "")
-            
-            # 1. Direct Interception for Custom UI (Root Page and /dev-ui)
-            if path in ("/", "/index.html", "/dev-ui", "/dev-ui/") or path.startswith("/dev-ui"):
-                import sys
-                print(f"DEBUG middleware: Intercepting path {path} to serve custom gourmet UI from static_assets!", file=sys.stderr, flush=True)
-                try:
-                    html = static_assets.get_html()
-                    import json
-                    regex_str = get_cached_masking_regex()
-                    html = html.replace("MASK_REGEX_PLACEHOLDER", json.dumps(regex_str))
-                    
-                    html_bytes = html.encode("utf-8")
-                    headers = [
-                        (b"content-type", b"text/html; charset=utf-8"),
-                        (b"content-length", str(len(html_bytes)).encode("utf-8"))
-                    ]
-                    
-                    await send({
-                        "type": "http.response.start",
-                        "status": 200,
-                        "headers": headers
-                    })
-                    await send({
-                        "type": "http.response.body",
-                        "body": html_bytes,
-                        "more_body": False
-                    })
-                    return
-                except Exception as e:
-                    print(f"Error serving custom UI: {e}", file=sys.stderr, flush=True)
-                    await self.app(scope, receive, send)
-                    return
+    @app.get("/", response_class=HTMLResponse)
+    async def custom_root_ui():
+        return await serve_custom_ui_content()
 
-            
+    @app.get("/index.html", response_class=HTMLResponse)
+    async def custom_index_ui():
+        return await serve_custom_ui_content()
 
-            await self.app(scope, receive, send)
+    @app.get("/dev-ui", response_class=HTMLResponse)
+    async def custom_devui_ui():
+        return await serve_custom_ui_content()
 
-    app.add_middleware(PatchedIndexMiddleware)
+    @app.get("/dev-ui/", response_class=HTMLResponse)
+    async def custom_devui_slash_ui():
+        return await serve_custom_ui_content()
+
+    @app.get("/dev-ui/{rest_of_path:path}", response_class=HTMLResponse)
+    async def custom_devui_subpath_ui(rest_of_path: str):
+        return await serve_custom_ui_content()
+
     import sys
     print(f"DEBUG patched_get_fast_api_app registered routes: {[r.path for r in app.routes]}", file=sys.stderr, flush=True)
     return app
