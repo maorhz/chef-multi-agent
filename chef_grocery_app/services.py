@@ -381,7 +381,13 @@ def patched_get_fast_api_app(self, *args, **kwargs):
                     return
             await self.app(scope, receive, send)
 
-    app.add_middleware(CustomUIMiddleware)
+    original_build_stack = app.build_middleware_stack
+
+    def patched_build_stack():
+        stack = original_build_stack()
+        return CustomUIMiddleware(stack)
+
+    app.build_middleware_stack = patched_build_stack
     return app
 
 api_server.ApiServer.get_fast_api_app = patched_get_fast_api_app
