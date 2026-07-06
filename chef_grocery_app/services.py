@@ -298,8 +298,11 @@ class CustomUIMiddleware:
     async def __call__(self, scope, receive, send):
         if scope["type"] == "http":
             path = scope.get("path", "")
+            import sys
+            print(f"DEBUG CustomUIMiddleware: Received request path='{path}' scope={scope}", file=sys.stderr, flush=True)
             if path in ("/", "/index.html", "/dev-ui", "/dev-ui/") or path.startswith("/dev-ui"):
                 import json
+                print(f"DEBUG CustomUIMiddleware: Intercepting path='{path}' and serving Custom UI HTML!", file=sys.stderr, flush=True)
                 html = static_assets.get_html()
                 regex_str = get_cached_masking_regex()
                 html = html.replace("MASK_REGEX_PLACEHOLDER", json.dumps(regex_str))
@@ -309,6 +312,8 @@ class CustomUIMiddleware:
         await self.app(scope, receive, send)
 
 async def custom_ui_route_handler(request: Request):
+    import sys
+    print(f"DEBUG custom_ui_route_handler: Called for path='{request.url.path}'", file=sys.stderr, flush=True)
     import json
     html = static_assets.get_html()
     regex_str = get_cached_masking_regex()
@@ -316,19 +321,25 @@ async def custom_ui_route_handler(request: Request):
     return HTMLResponse(content=html, media_type="text/html")
 
 def attach_custom_ui_middleware(app):
+    import sys
+    print(f"DEBUG attach_custom_ui_middleware: Overriding endpoint handlers for app routes", file=sys.stderr, flush=True)
     for route in list(app.router.routes):
         path = getattr(route, "path", "")
         if path in ("/", "/index.html", "/dev-ui", "/dev-ui/"):
+            print(f"DEBUG attach_custom_ui_middleware: Overriding endpoint for route path='{path}'", file=sys.stderr, flush=True)
             route.endpoint = custom_ui_route_handler
 
     original_build_stack = app.build_middleware_stack
     def patched_build_stack():
+        print(f"DEBUG patched_build_stack: Building stack with CustomUIMiddleware wrapper!", file=sys.stderr, flush=True)
         stack = original_build_stack()
         return CustomUIMiddleware(stack)
     app.build_middleware_stack = patched_build_stack
     return app
 
 def patched_get_fast_api_app(self, *args, **kwargs):
+    import sys
+    print(f"DEBUG patched_get_fast_api_app: Called with args={args} kwargs={kwargs}", file=sys.stderr, flush=True)
     # Try to resolve web_assets_dir
     web_assets_dir = kwargs.get("web_assets_dir")
     if not web_assets_dir and len(args) >= 3:
