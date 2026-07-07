@@ -118,9 +118,9 @@ flowchart TB
     class MA,DLP,Gemini security;
 ```
 
-### High-Fidelity System Topology:
+### High Level Architecture
 
-![Gourmet Agent Architecture](gourmet_agent_architecture.svg)
+![Gourmet Agent Architecture](Gourmet%20Agent%20Architecture.svg)
 
 ---
 

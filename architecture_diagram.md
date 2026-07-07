@@ -68,11 +68,11 @@ flowchart TB
 
 ---
 
-## 2. High-Fidelity Topology Diagram
+## 2. High Level Architecture
 
 Here is the high-fidelity system topology diagram mapping the layout and components:
 
-![Gourmet Agent Architecture](gourmet_agent_architecture.svg)
+![Gourmet Agent Architecture](Gourmet%20Agent%20Architecture.svg)
 
 ---
 
