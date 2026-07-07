@@ -39,18 +39,18 @@ flowchart TB
     UI -->|1. Request Assets| UIMiddleware
     UIMiddleware -->|2. Serve UI| UI
     UI -->|3. Client-side Regex Screening| RegexMask
-    UI -->|4. Post /evaluate (Header Auth & Rate-Limit)| EvalAPI
+    UI -->|4. Post /evaluate - Header Auth and Rate-Limit| EvalAPI
     
     EvalAPI -->|5. Audit Guardrails| MA
     EvalAPI -->|6. Deidentify PII| DLP
     
-    UI -->|7. Post /run (Execution request)| RunAPI
+    UI -->|7. Post /run - Execution request| RunAPI
     RunAPI -->|8. Forward reasoning query| RE
     
     RE -->|9. Orchestrate Workflow| ChefAgent
     ChefAgent -->|10. Recipe Inference| Gemini
     ChefAgent -->|11. Hand off context| GroceryAgent
-    GroceryAgent -->|12. Shopping List & Nutrition| Gemini
+    GroceryAgent -->|12. Shopping List and Nutrition| Gemini
     RE -->|13. Stream SSE response back| RunAPI
     RunAPI -->|14. Render agent bubbles| UI
 
