@@ -13,7 +13,7 @@ The application takes a user's food craving, ingredients on hand, or diet prefer
 
 ## 🛠️ 2. Project Setup & Directory
 All files are organized in the following local directory:
-`/usr/local/google/home/maorhz/Documents/Code/google-adk-learning`
+`/usr/local/google/home/maorhz/Documents/Code/chef-multi-agent`
 
 ### Setup Steps:
 1. **Virtual Environment**:
@@ -41,29 +41,52 @@ We initially designed the system with two separate agents (`chef_agent` and `gro
 
 While functional, this triggered a **System Instruction Performance Alert** in the ADK Developer UI. Swapping the system instructions (`You are an expert chef...` to `You are a shopping coordinator...`) between consecutive turns in the same session invalidated Gemini's **context caching**, resulting in cache misses and increased response latency.
 
-### Phase 2: Single-Agent Consolidation (Optimized Design)
-To maximize caching efficiency, we consolidated both personas into a single, unified agent that executes the tasks sequentially in a single turn.
+### Phase 2: Single-Agent Consolidation (Optimized Caching)
+To maximize caching efficiency, we consolidated both personas into a single, unified agent (`chef_and_grocery_agent`) that executed the tasks sequentially in a single turn. This resolved context cache invalidation warnings.
 
-#### Final Code (`chef_grocery_app/agent.py`):
+### Phase 3: Multi-Agent Restoration (Security Guardrails & Vertex AI platform)
+To support robust **Model Armor Input Shielding**, we restored the multi-agent layout containing the separate agents `chef_agent` and `grocery_agent` wrapped in a custom `@node` wrapper (`run_chef`).
+* By using a custom node wrapper with conditional routing (`ctx.route = "continue"`), we cleanly halt the workflow output downstream without duplicate messages if a security filter is triggered.
+* To optimize caching in the multi-agent setup, we run reasoning on a managed **Vertex AI Agent Engine** execution graph, maintaining caching and session persistence natively.
+
+#### Final Agent Code (`chef_grocery_app/agent.py`):
 ```python
 from google.adk import Agent
+from google.adk.workflow import Workflow, START, node
+# ... imports ...
 
-# Define the consolidated agent
-chef_and_grocery_agent = Agent(
-    name="chef_and_grocery_agent",
+chef_agent = Agent(
+    name="chef_agent",
     model="gemini-2.5-flash",
-    instruction=(
-        "You are an expert culinary assistant. Perform the following two tasks in sequence:\n\n"
-        "Task 1: Create a detailed recipe based on the user's request, incorporating "
-        "any ingredients they want to use. List the exact ingredients and step-by-step instructions.\n\n"
-        "Task 2: Analyze the recipe you created. Generate a clean, categorized shopping list "
-        "for the ingredients the user needs to buy (exclude ingredients they already have). "
-        "Also estimate the basic nutritional info (calories, protein, carbs, fat) for the recipe."
-    )
+    instruction="You are an expert culinary assistant..."
 )
 
-# Set the single agent as the root_agent
-root_agent = chef_and_grocery_agent
+grocery_agent = Agent(
+    name="grocery_agent",
+    model="gemini-2.5-flash",
+    instruction="You are a grocery shopping coordinator..."
+)
+
+# Wrapper node for safety checks and routing
+@node(rerun_on_resume=True)
+async def run_chef(ctx, inp):
+    res = await ctx.run_node(chef_agent, inp, use_as_output=True)
+    if res is None:  # Blocked by Model Armor
+        return None
+    ctx.route = "continue"
+    return res
+
+chef_grocery_workflow = Workflow(
+    name="chef_grocery_workflow",
+    edges=[
+        (START, run_chef),
+        (run_chef, {
+            "continue": grocery_agent
+        })
+    ]
+)
+
+root_agent = chef_grocery_workflow
 ```
 
 ---
@@ -130,17 +153,39 @@ if __name__ == "__main__":
 
 ---
 
-## ☁️ 5. Cloud Run Deployment & Security
+## ☁️ 5. Platform Hosting: Cloud Run UI Gateway & Vertex AI Agent Engine
 
-We deployed the application to Google Cloud Run with the ADK Web UI enabled.
+We deployed a hybrid hosting model to keep custom DNS routing (`chef.gmandiant.com`) active while running the agents on Vertex AI Agent Engine:
 
-### Deployment Command:
-```bash
-venv/bin/adk deploy cloud_run --project=my-project-76851-371010 --region=us-central1 --with_ui chef_grocery_app
-```
+### 1. Cloud Run UI Gateway
+Acts as the public frontend and routing gateway. It serves the custom gourmet UI, handles rate limits, runs `/evaluate` security filters, and forwards agent execution queries to Vertex AI.
+
+* **Deployment Command**:
+  ```bash
+  adk deploy cloud_run --project=my-project-76851-371010 --region=us-central1 --with_ui chef_grocery_app
+  ```
+
+### 2. Vertex AI Agent Engine (Agent Platform)
+Executes the ADK multi-agent graph as a managed Reasoning Engine.
+
+* **Engine ID**: `3906571960313708544`
+* **Agent Engine Deployment Script**:
+  ```python
+  from google.cloud import aiplatform
+  from google.adk.deploy import deploy_to_agent_engine
+  from chef_grocery_app.agent import root_agent
+
+  aiplatform.init(project="my-project-76851-371010", location="us-central1")
+
+  remote_agent = deploy_to_agent_engine(
+      agent=root_agent,
+      display_name="Chef & Grocery Multi-Agent System",
+      requirements=["google-adk", "google-cloud-modelarmor", "google-cloud-dlp"]
+  )
+  ```
 
 ### IAM Vertex AI User Permission Binding
-To allow the server backend to authenticate to Vertex AI, we granted the **Vertex AI User** (`roles/aiplatform.user`) role to the Cloud Run Default Service Account:
+To allow the Cloud Run backend to invoke the Reasoning Engine on the Agent Platform, we granted the **Vertex AI User** (`roles/aiplatform.user`) role to the Cloud Run Service Account:
 ```bash
 gcloud projects add-iam-policy-binding my-project-76851-371010 \
   --member="serviceAccount:855384940829-compute@developer.gserviceaccount.com" \
@@ -148,7 +193,7 @@ gcloud projects add-iam-policy-binding my-project-76851-371010 \
 ```
 
 ### Restricting Access & Authenticating Users (IAM Invoker)
-To prevent unauthorized public access, we removed `allUsers` permissions and restricted access to specific authenticated accounts:
+To prevent unauthorized public access, we removed `allUsers` permissions and restricted access to authorized team accounts:
 
 1. **Remove public access**:
    ```bash
@@ -162,32 +207,11 @@ To prevent unauthorized public access, we removed `allUsers` permissions and res
 2. **Grant access to authorized users**:
    ```bash
    gcloud run services add-iam-policy-binding adk-default-service-name \
-     --member="user:gadmin@maorhz.altostrat.com" \
-     --role="roles/run.invoker" \
-     --project=my-project-76851-371010 \
-     --region=us-central1
-
-   gcloud run services add-iam-policy-binding adk-default-service-name \
      --member="user:maorhz@google.com" \
      --role="roles/run.invoker" \
      --project=my-project-76851-371010 \
      --region=us-central1
    ```
-
-### Accessing the Secured Web UI (Local Proxy)
-When the service is restricted, visiting the Cloud Run URL directly in a browser results in `403 Forbidden`. You must use a local proxy to sign requests:
-
-1. **Install Cloud Run Proxy component** (if not already installed/managed):
-   ```bash
-   sudo apt-get install google-cloud-cli-cloud-run-proxy
-   ```
-2. **Start the local authentication proxy**:
-   ```bash
-   gcloud beta run services proxy adk-default-service-name \
-     --project=my-project-76851-371010 \
-     --region=us-central1
-   ```
-3. Open the printed local proxy URL in your browser (typically **`http://localhost:8080`** or `http://127.0.0.1:8080`) to access the Visual Web UI console securely.
 
 ---
 
@@ -241,7 +265,6 @@ To protect PII before it is displayed or stored in local UI histories, we implem
 2. **Automated SDP Template Parsing**: The backend queries the live Google Cloud Sensitive Data Protection (DLP) inspectTemplate API (`projects/my-project-76851-371010/locations/us-central1/inspectTemplates/2828347596800781685`) to dynamically load active infoTypes and custom regex rules, compiling them into a combined regex alternation on the client.
 3. **5-Minute Template Caching**: Updates made in the Google Cloud Console propagate to browser sessions within 5 minutes without restarting any backend service.
 4. **Accurate SDP Exclusions**: Queries the Model Armor backend to validate whether a match is excluded (e.g., `maor@google.com` matching the exclusion regex).
-5. **Stateful DOM Restoration**: Utilizes `node._originalValue` state property to dynamically restore excluded PII back to clear text without losing data.
 6. **Dual XHR & Fetch Hooks**: Intercepts both standard browser `fetch` requests and Angular HttpClient's `XMLHttpRequest` (XHR) calls.
 
 ### Architecture Overview:
@@ -251,20 +274,21 @@ sequenceDiagram
     autonumber
     participant User
     participant DOM as Browser UI
-    participant FastAPI as Backend API
+    participant FastAPI as Backend API Gateway
     participant DLP as DLP API (GCP)
     participant MA as Model Armor (SDP Template)
-    participant ADK as ADK Engine
-    participant Chef as run_chef Node
-    participant Grocery as Grocery Agent
+    participant RE as Vertex AI Agent Engine
+    participant Chef as run_chef Node (RE)
+    participant Grocery as Grocery Agent (RE)
     
     %% Boot & Page Load
     Note over User, Grocery: Phase 1: Startup & Dynamic Template Fetching
     FastAPI->>DLP: GetInspectTemplate(template_name)
     DLP-->>FastAPI: Return inspectTemplate config (InfoTypes, Custom Regexes)
     Note over User, Grocery: Map SDP infoTypes to local patterns & compile MASK_REGEX
-    DOM->>FastAPI: Load page index.html (/dev-ui/)
-    FastAPI-->>DOM: Return index.html (PatchedIndexMiddleware injects MASK_REGEX)
+    Note over User, Grocery: Overwrite index.html static assets on disk with compiled MASK_REGEX
+    DOM->>FastAPI: Load page index.html (at / or /dev-ui/)
+    FastAPI-->>DOM: Return index.html (CustomUIMiddleware intercepts and serves Custom UI HTML)
 
     %% Interception & Evaluation
     Note over User, Grocery: Phase 2: Client-side Interception & SDP Evaluation
@@ -272,30 +296,75 @@ sequenceDiagram
     Note over User, Grocery: Optimistic Masking: Local regex pattern matching (PII masked immediately in DOM user bubble)
     DOM->>FastAPI: Sync POST /evaluate {text: prompt}
     FastAPI->>MA: SanitizeUserPromptRequest(prompt) using Template
-    Note over User, Grocery: Model Armor SDP checks: inspect & deidentify PII based on active SDP template config
+    Note over User, Grocery: Model Armor SDP checks: inspect and deidentify PII based on active SDP template config
     MA-->>FastAPI: Return SanitizationResult (block state, deidentified_text)
     FastAPI-->>DOM: Return evaluate response {"block": false, "deidentified_text": "My email is ################"}
     Note over User, Grocery: Stateful DOM update: Keep masked PII or restore to clear text (if exclusion matched)
-    DOM->>FastAPI: Send finalized prompt via POST /run_sse
+    DOM->>FastAPI: Send finalized prompt via POST /run (or /run_sse)
     
-    %% ADK Engine
-    Note over User, Grocery: Phase 3: Multi-Agent Workflow Execution
-    FastAPI->>ADK: Execute Workflow
-    ADK->>Chef: run_chef(node_input)
+    %% Agent Platform
+    Note over User, Grocery: Phase 3: Multi-Agent Workflow Execution (Agent Platform)
+    FastAPI->>RE: Invoke Reasoning Engine (streamQuery)
+    RE->>Chef: run_chef(node_input)
     Note over User, Grocery: Executes chef_agent & checks callback route status
     alt Callback route = blocked
         Chef-->>FastAPI: Return None (Workflow Halts with [Security Alert])
     else Callback route = continue
         Chef->>Grocery: Execute grocery_agent(recipe)
-        Grocery-->>FastAPI: Return final shopping list & nutrition breakout
+        Grocery-->>RE: Return final shopping list and nutrition breakout
     end
+    RE-->>FastAPI: Stream tokens back
+    FastAPI-->>DOM: Stream SSE response back
 ```
 
 ### Complete Implementation Details:
-*   **ASGI Middleware**: [PatchedIndexMiddleware](file:///usr/local/google/home/maorhz/Documents/Code/google-adk-learning/chef_grocery_app/services.py#L130) intercepts the HTML response of `/dev-ui/` and dynamically injects the shielding code into the HTML `<head>` tag.
+*   **ASGI Middleware**: [CustomUIMiddleware](file:///usr/local/google/home/maorhz/Documents/Code/chef-multi-agent/chef_grocery_app/services.py#L294) intercepts incoming HTTP requests to `/` and `/dev-ui/` to serve the custom Gourmet UI HTML with compiled PII regexes injected.
 *   **DLP API Integration**: Uses credentials with custom quota-project overrides to dynamically fetch templates from the REST endpoint (`https://dlp.googleapis.com/v2/...`), extracting both standard built-in rulesets and custom regex patterns.
-*   **XHR Hook**: Overrides `XMLHttpRequest.prototype.open` and `XMLHttpRequest.prototype.send` to perform a synchronous blocking call to `/evaluate` before the `/run_sse` stream is dispatched.
+*   **XHR Hook**: Overrides `XMLHttpRequest.prototype.open` and `XMLHttpRequest.prototype.send` to perform a synchronous blocking call to `/evaluate` before the `/run` stream is dispatched.
 *   **DOM Observer**: Uses a standard browser `MutationObserver` combined with `element._originalValue` state properties to ensure clean text replacements without permanently losing node values.
+
+---
+
+## 🎨 8. Premium Gourmet Custom UI (Production)
+
+To elevate the application from a default ADK developer panel to a premium consumer product, we implemented a custom **Gourmet Split-Screen UI** at the root domain (`chef.gmandiant.com`).
+
+### UX Concept & Layout
+*   **Left Column (Culinary Chat)**: A sleek chat interface featuring preset suggestion pills (e.g., *High-Protein Keto Dinner*, *15-Min Vegan Pasta*), conversational history, and secure, interactive prompt shielding badges.
+*   **Right Column (The Gourmet Board)**: A multi-tab dashboard that parses and presents the agent's output in real time:
+    1.  **Recipe Tab**: A beautifully formatted culinary article with a prep/cook metadata grid and step-by-step cooking cards.
+    2.  **Shopping List Tab**: A smart grocery checklist grouped by department/aisle (e.g., *Produce*, *Bakery*, *Meat*). Users can check off items as they shop.
+    3.  **Nutrition HUD**: A visual macronutrient dashboard featuring real-time progress bars for Calories, Protein, Carbs, and Fat scaled against daily benchmarks.
+
+---
+
+### Container-Native Memory Asset Delivery
+
+To bypass container-copying restrictions during Cloud Run deployments (where custom folders like `static/` are often excluded from python package uploads), we designed a **zero-filesystem, container-native asset delivery system**:
+
+1.  **Memory-Backed Assets (`static_assets.py`)**: Embedded the entire frontend codebase (HTML, CSS, Javascript) as raw UTF-8 Python strings within [static_assets.py](file:///usr/local/google/home/maorhz/Documents/Code/chef-multi-agent/chef_grocery_app/static_assets.py).
+2.  **FastAPI Memory Routes**: Registered custom memory routes in [services.py](file:///usr/local/google/home/maorhz/Documents/Code/chef-multi-agent/chef_grocery_app/services.py) that serve these assets directly as responses, bypassing disk I/O entirely:
+    ```python
+    @app.get("/static/styles.css")
+    async def serve_css():
+        return Response(content=static_assets.get_css(), media_type="text/css")
+
+    @app.get("/static/app.js")
+    async def serve_js():
+        return Response(content=static_assets.get_js(), media_type="application/javascript")
+    ```
+3.  **ASGI Root Interception**: Inside `CustomUIMiddleware`, requests to the root path (`/` or `/index.html`) or `/dev-ui/` are intercepted at the ASGI layer to serve the gourmet HTML string from memory, replacing `MASK_REGEX_PLACEHOLDER` with the active compiled PII regex.
+4.  **Dev/Prod Coexistence**: The custom gourmet UI is served at `/` for consumer use, while the default ADK developer console remains fully active and accessible at `/dev-ui` for debugging!
+
+---
+
+### Real-Time LLM Response Parsing
+
+The frontend Javascript [app.js](file:///usr/local/google/home/maorhz/Documents/Code/chef-multi-agent/chef_grocery_app/static/app.js) parses the raw markdown streamed from the backend:
+*   **Recipe**: Scans for headers containing `Recipe`, `Ingredients`, or `Instructions` and converts markdown syntax into rich HTML cards.
+*   **Checklist**: Extracts bulleted items and groups them into department categories using a custom parser.
+*   **HUD Dashboard**: Uses regex patterns (e.g., `/(?:protein|pro):\s*(\d+)/i`) to extract macro values, updating values and animating progress bars dynamically as the stream completes.
+
 
 
 
