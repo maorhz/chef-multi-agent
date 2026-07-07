@@ -55,39 +55,64 @@ sequenceDiagram
     end
 ```
 
-### Complete System Architecture & Orchestration Graph:
+### Complete System Architecture & Working Model:
 
 ```mermaid
-graph TD
-    %% Subgraph 1: GCP & Translation
-    subgraph "DLP Template Translation Pipeline (GCP to Client)"
-        dlp["GCP DLP Inspect Template<br/>(InfoTypes & Custom Regexes)"] -->|1. Fetch Template| backend["FastAPI DLP Service<br/>(Translate to local Regex)"]
-        backend -->|2. Compile MASK_REGEX| middleware["PatchedIndexMiddleware (ASGI)"]
-        middleware -->|3. Inject into HTML| browser["Browser JS Interceptor<br/>(Active DOM Hook)"]
+flowchart TB
+    %% Nodes
+    subgraph ClientLayer ["Client Layer (User Browser)"]
+        UI["Custom Gourmet UI (index.html / app.js)"]
+        RegexMask["Client-side Regex Masker"]
     end
 
-    %% Subgraph 2: Runtime Shielding
-    subgraph "Real-Time Prompt Shielding"
-        User([User Prompt]) -->|4. Input Event| browser
-        browser -->|5. Optimistic Masking| dom["DOM Chat Bubble (Instant Mask)"]
-        browser -->|6. Sync /evaluate| evaluate["POST /evaluate<br/>(Model Armor sanitization)"]
-        evaluate -->|7. Return deidentified_text| browser
-        browser -->|8. Update DOM state| dom
+    subgraph GatewayLayer ["Cloud Run Gateway (chef.gmandiant.com)"]
+        WebServer["FastAPI App (services.py)"]
+        UIMiddleware["CustomUIMiddleware (Index Intercept)"]
+        EvalAPI["/evaluate Route"]
+        RunAPI["/run & /run_sse Gateway Routes"]
     end
 
-    %% Subgraph 3: Workflow Execution
-    subgraph "Multi-Agent Workflow"
-        browser -->|9. Stream POST /run_sse| workflow["ADK Workflow Entry"]
-        workflow --> run_chef{run_chef Node}
-        run_chef -- "[Security Alert] / Blocked" --> Halt([Workflow Terminates])
-        run_chef -- "continue / Recipe" --> Grocery[Grocery Agent]
-        Grocery --> Output([Final Output])
-        
-        subgraph ADK Agent Shield
-            callback[model_armor_input_shield] -.-> chef_agent[Chef Agent]
-            chef_agent -.-> run_chef
-        end
+    subgraph PlatformLayer ["Vertex AI Agent Engine (Agent Platform)"]
+        RE["ReasoningEngine (chef_grocery_workflow)<br/>ID: 3906571960313708544"]
+        ChefAgent["Chef Agent (chef_agent)"]
+        GroceryAgent["Grocery Agent (grocery_agent)"]
     end
+
+    subgraph SecurityLayer ["Google Cloud Security & LLM Services"]
+        MA["Model Armor Template (agent-shield)"]
+        DLP["Cloud DLP Template (sdp-screening)"]
+        Gemini["Gemini 2.5 Flash (LLM Backend)"]
+    end
+
+    %% Flow Connections
+    UI -->|1. Request Assets| UIMiddleware
+    UIMiddleware -->|2. Serve UI| UI
+    UI -->|3. Client-side Regex Screening| RegexMask
+    UI -->|4. Post /evaluate - Header Auth and Rate-Limit| EvalAPI
+    
+    EvalAPI -->|5. Audit Guardrails| MA
+    EvalAPI -->|6. Deidentify PII| DLP
+    
+    UI -->|7. Post /run - Execution request| RunAPI
+    RunAPI -->|8. Forward reasoning query| RE
+    
+    RE -->|9. Orchestrate Workflow| ChefAgent
+    ChefAgent -->|10. Recipe Inference| Gemini
+    ChefAgent -->|11. Hand off context| GroceryAgent
+    GroceryAgent -->|12. Shopping List and Nutrition| Gemini
+    RE -->|13. Stream SSE response back| RunAPI
+    RunAPI -->|14. Render agent bubbles| UI
+
+    %% Styling
+    classDef client fill:#e1f5fe,stroke:#01579b,stroke-width:2px;
+    classDef gateway fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px;
+    classDef platform fill:#f3e5f5,stroke:#4a148c,stroke-width:2px;
+    classDef security fill:#fffde7,stroke:#f57f17,stroke-width:2px;
+
+    class UI,RegexMask client;
+    class WebServer,UIMiddleware,EvalAPI,RunAPI gateway;
+    class RE,ChefAgent,GroceryAgent platform;
+    class MA,DLP,Gemini security;
 ```
 
 ---
