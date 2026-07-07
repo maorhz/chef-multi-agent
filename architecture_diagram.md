@@ -68,7 +68,7 @@ flowchart TB
 
 ---
 
-## 2. High Level Architecture
+## 2. High Level Design
 
 Here is the high-fidelity system topology diagram mapping the layout and components:
 

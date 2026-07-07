@@ -10,7 +10,7 @@ This document serves as the complete technical spec and implementation reference
 
 The application splits responsibilities between specialized agents orchestrated by an ADK Workflow, wrapped in a client-side masking and security layer.
 
-### High Level Architecture
+### High Level Design
 
 ![Gourmet Agent Architecture](Gourmet%20Agent%20Architecture.svg)
 
