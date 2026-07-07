@@ -10,6 +10,12 @@ This document serves as the complete technical spec and implementation reference
 
 The application splits responsibilities between specialized agents orchestrated by an ADK Workflow, wrapped in a client-side masking and security layer.
 
+### High Level Architecture
+
+![Gourmet Agent Architecture](Gourmet%20Agent%20Architecture.svg)
+
+### End-to-End Workflow Execution Sequence:
+
 ```mermaid
 sequenceDiagram
     autonumber
@@ -117,10 +123,6 @@ flowchart TB
     class RE,ChefAgent,GroceryAgent platform;
     class MA,DLP,Gemini security;
 ```
-
-### High Level Architecture
-
-![Gourmet Agent Architecture](Gourmet%20Agent%20Architecture.svg)
 
 ---
 
