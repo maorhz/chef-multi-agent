@@ -2,7 +2,7 @@
 
 # Multi-Agent Workflow with SDP/DLP Dynamic Masking
 
-This document serves as the complete technical spec and implementation reference for the **Smart Chef & Grocery Assistant** multi-agent workflow, featuring real-time client-side prompt shielding and backend Model Armor protection.
+This document serves as the complete technical spec and implementation reference for the **Smart Chef & Grocery Assistant** multi-agent workflow, featuring real-time client-side prompt shielding and backend Model Armor + SDP/DLP protection.
 
 ---
 
@@ -15,20 +15,21 @@ sequenceDiagram
     autonumber
     participant User
     participant DOM as Browser UI
-    participant FastAPI as Backend API
+    participant FastAPI as Backend API Gateway
     participant DLP as DLP API (GCP)
     participant MA as Model Armor (SDP Template)
-    participant ADK as ADK Engine
-    participant Chef as run_chef Node
-    participant Grocery as Grocery Agent
+    participant RE as Vertex AI Agent Engine
+    participant Chef as run_chef Node (RE)
+    participant Grocery as Grocery Agent (RE)
     
     %% Boot & Page Load
     Note over User, Grocery: Phase 1: Startup & Dynamic Template Fetching
     FastAPI->>DLP: GetInspectTemplate(template_name)
     DLP-->>FastAPI: Return inspectTemplate config (InfoTypes, Custom Regexes)
-    Note over User, Grocery: Map SDP infoTypes to local patterns & compile MASK_REGEX
-    DOM->>FastAPI: Load page index.html (/dev-ui/)
-    FastAPI-->>DOM: Return index.html (PatchedIndexMiddleware injects MASK_REGEX)
+    Note over User, Grocery: Map SDP infoTypes to local patterns and compile MASK_REGEX
+    Note over User, Grocery: Overwrite index.html static assets on disk with compiled MASK_REGEX
+    DOM->>FastAPI: Load page index.html (at / or /dev-ui/)
+    FastAPI-->>DOM: Return index.html (CustomUIMiddleware intercepts and serves Custom UI HTML)
 
     %% Interception & Evaluation
     Note over User, Grocery: Phase 2: Client-side Interception & SDP Evaluation
@@ -36,23 +37,25 @@ sequenceDiagram
     Note over User, Grocery: Optimistic Masking: Local regex pattern matching (PII masked immediately in DOM user bubble)
     DOM->>FastAPI: Sync POST /evaluate {text: prompt}
     FastAPI->>MA: SanitizeUserPromptRequest(prompt) using Template
-    Note over User, Grocery: Model Armor SDP checks: inspect & deidentify PII based on active SDP template config
+    Note over User, Grocery: Model Armor SDP checks: inspect and deidentify PII based on active SDP template config
     MA-->>FastAPI: Return SanitizationResult (block state, deidentified_text)
     FastAPI-->>DOM: Return evaluate response {"block": false, "deidentified_text": "My email is ################"}
     Note over User, Grocery: Stateful DOM update: Keep masked PII or restore to clear text (if exclusion matched)
-    DOM->>FastAPI: Send finalized prompt via POST /run_sse
+    DOM->>FastAPI: Send finalized prompt via POST /run (or /run_sse)
     
-    %% ADK Engine
-    Note over User, Grocery: Phase 3: Multi-Agent Workflow Execution
-    FastAPI->>ADK: Execute Workflow
-    ADK->>Chef: run_chef(node_input)
-    Note over User, Grocery: Executes chef_agent & checks callback route status
+    %% Agent Platform
+    Note over User, Grocery: Phase 3: Multi-Agent Workflow Execution (Agent Platform)
+    FastAPI->>RE: Invoke Reasoning Engine (streamQuery)
+    RE->>Chef: run_chef(node_input)
+    Note over User, Grocery: Executes chef_agent and checks callback route status
     alt Callback route = blocked
         Chef-->>FastAPI: Return None (Workflow Halts with [Security Alert])
     else Callback route = continue
         Chef->>Grocery: Execute grocery_agent(recipe)
-        Grocery-->>FastAPI: Return final shopping list & nutrition breakout
+        Grocery-->>RE: Return final shopping list and nutrition breakout
     end
+    RE-->>FastAPI: Stream tokens back
+    FastAPI-->>DOM: Stream SSE response back
 ```
 
 ### Complete System Architecture & Working Model:
