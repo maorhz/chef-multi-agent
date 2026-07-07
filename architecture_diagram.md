@@ -68,7 +68,15 @@ flowchart TB
 
 ---
 
-## 2. End-to-End Request Lifecycle
+## 2. High-Fidelity Topology Diagram
+
+Here is the high-fidelity system topology diagram mapping the layout and components:
+
+![Gourmet Agent Architecture](gourmet_agent_architecture.svg)
+
+---
+
+## 3. End-to-End Request Lifecycle
 
 The system operates using a hybrid model designed to keep custom DNS routing (`chef.gmandiant.com`) active while offloading 100% of LLM execution and state management to the Agent Platform:
 

@@ -118,6 +118,10 @@ flowchart TB
     class MA,DLP,Gemini security;
 ```
 
+### High-Fidelity System Topology:
+
+![Gourmet Agent Architecture](gourmet_agent_architecture.svg)
+
 ---
 
 ## 💻 2. Complete Backend Implementation
